@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -29,6 +29,11 @@ export function AuthScreen() {
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnonLoading, setAnonIsLoading] = useState(false);
+
+  const displayNameRef = useRef(null);
+  const photoRef = useRef(null);
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   const handleAnonymousSignIn = async () => {
     if (!auth) {
@@ -132,24 +137,31 @@ export function AuthScreen() {
             {isSignUp && (
               <>
                 <TextInput
+                  ref={displayNameRef}
                   style={styles.input}
                   placeholder="Display Name"
                   value={displayName}
                   onChangeText={setDisplayName}
                   autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => photoRef.current?.focus()}
                 />
                 <TextInput
+                  ref={photoRef}
                   style={styles.input}
                   placeholder="Profile Image URL (optional)"
                   value={photoURL ?? ""}
                   onChangeText={(text) => setPhotoURL(text || null)}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
                 />
               </>
             )}
 
             <TextInput
+              ref={emailRef}
               style={styles.input}
               placeholder="Email"
               value={email}
@@ -157,9 +169,12 @@ export function AuthScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
 
             <TextInput
+              ref={passwordRef}
               style={styles.input}
               placeholder="Password"
               value={password}
@@ -167,6 +182,7 @@ export function AuthScreen() {
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
+              onSubmitEditing={handleEmailAuth}
             />
 
             <TouchableOpacity
