@@ -7,6 +7,7 @@ import {
   query,
   where,
   getDocs,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { FirestoreSpot, FloorSelectionResult, SpotStatus } from "../types";
@@ -51,7 +52,7 @@ export async function updateSpotStatus(
 ): Promise<void> {
   if (!db) return;
   const update: Partial<FirestoreSpot> & Record<string, unknown> = { status };
-  if (status === "broadcasting") update.broadcastAt = Date.now();
+  if (status === "broadcasting") update.broadcastAt = serverTimestamp();
   await updateDoc(doc(db, "spots", spotId), update);
 }
 
