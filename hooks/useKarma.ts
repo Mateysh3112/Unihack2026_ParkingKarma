@@ -17,6 +17,6 @@ export function useKarma() {
     nextTier,
     progressToNextTier: Math.min(progressToNextTier, 1),
     shareSpot: () => addKarma(KARMA_REWARDS.SHARE_SPOT),
-    useSpot: () => addKarma(KARMA_REWARDS.SPOT_USED),
+    useSpot: () => addKarma(KARMA_REWARDS.SPOT_CLAIMED),
   };
 }
