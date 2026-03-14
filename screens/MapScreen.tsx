@@ -5,11 +5,14 @@ import * as Location from 'expo-location';
 import { FABButton } from '../components/FABButton';
 import { FloorSelectionSheet } from './FloorSelectionSheet';
 import { LeavingVerificationScreen } from './LeavingVerificationScreen';
+import { SpotClaimScreen } from './SpotClaimScreen';
 import { useAppStore } from '../store/useAppStore';
 import { useVerificationStore } from '../store/useVerificationStore';
-import { CarPark, FloorSelectionResult } from '../types';
+import { CarPark, FloorSelectionResult, FirestoreSpot } from '../types';
 import { sampleBarometer, computeAltitude, computeFloor, ELEVATED_THRESHOLD_METRES } from '../services/barometer';
 import { isInsideCarPark } from '../services/carParks';
+import { subscribeToBroadcastingSpots } from '../services/spots';
+import { haversineDistance } from '../services/movement';
 
 const MELBOURNE = {
   latitude: -37.8136,
@@ -26,6 +29,10 @@ export function MapScreen() {
   const [detectedCarPark, setDetectedCarPark] = useState<CarPark | null>(null);
   const [detectedAltitude, setDetectedAltitude] = useState<number | null>(null);
   const [detectedFloor, setDetectedFloor] = useState<number | null>(null);
+  const [broadcastingSpots, setBroadcastingSpots] = useState<(FirestoreSpot & { id: string })[]>([]);
+  const [claimScreenVisible, setClaimScreenVisible] = useState(false);
+  const [selectedSpot, setSelectedSpot] = useState<(FirestoreSpot & { id: string }) | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const pendingLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -44,15 +51,24 @@ export function MapScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
+        const userLoc = { lat: loc.coords.latitude, lng: loc.coords.longitude };
+        setCurrentLocation(userLoc);
         setRegion((r) => ({
           ...r,
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
+          latitude: userLoc.lat,
+          longitude: userLoc.lng,
         }));
       } catch {
         // Use default region when location is unavailable.
       }
     })();
+
+    // Subscribe to broadcasting spots
+    const unsubscribe = subscribeToBroadcastingSpots((spots) => {
+      setBroadcastingSpots(spots);
+    });
+
+    return unsubscribe;
   }, []);
 
   const launchVerification = async (floorData?: FloorSelectionResult) => {
@@ -129,6 +145,38 @@ export function MapScreen() {
     await launchVerification(result);
   };
 
+  const handleSpotPress = (spot: FirestoreSpot & { id: string }) => {
+    if (!currentLocation) {
+      Alert.alert('Location required', 'Please enable location services to claim spots.');
+      return;
+    }
+
+    const distance = haversineDistance(
+      currentLocation.lat,
+      currentLocation.lng,
+      spot.location.lat,
+      spot.location.lng
+    );
+
+    if (distance > 1000) { // Only show spots within 1km
+      Alert.alert('Too far', 'This spot is too far away to claim.');
+      return;
+    }
+
+    setSelectedSpot(spot);
+    setClaimScreenVisible(true);
+  };
+
+  const handleClaimSuccess = () => {
+    setClaimScreenVisible(false);
+    setSelectedSpot(null);
+  };
+
+  const handleClaimDismiss = () => {
+    setClaimScreenVisible(false);
+    setSelectedSpot(null);
+  };
+
   const handleVerificationClose = () => {
     setVerificationVisible(false);
     pendingLocRef.current = null;
@@ -145,13 +193,25 @@ export function MapScreen() {
         showsUserLocation
         showsMyLocationButton
       >
+        {/* Local spots (user's own spots) */}
         {spots.map((spot) => (
           <Marker
             key={spot.id}
             coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-            title="Free Spot"
-            description="Shared by a Parking Karma user"
+            title="Your Spot"
+            description="Shared by you"
             pinColor="#FF6B35"
+          />
+        ))}
+        {/* Broadcasting spots from other users */}
+        {broadcastingSpots.map((spot) => (
+          <Marker
+            key={spot.id}
+            coordinate={{ latitude: spot.location.lat, longitude: spot.location.lng }}
+            title="Free Spot"
+            description="Tap to claim"
+            pinColor="#34C759"
+            onPress={() => handleSpotPress(spot)}
           />
         ))}
       </MapView>
@@ -176,6 +236,27 @@ export function MapScreen() {
       <LeavingVerificationScreen
         visible={verificationVisible}
         onClose={handleVerificationClose}
+      />
+
+      <SpotClaimScreen
+        visible={claimScreenVisible}
+        spot={selectedSpot ? {
+          id: selectedSpot.id,
+          sharerId: selectedSpot.sharerId,
+          lat: selectedSpot.location.lat,
+          lng: selectedSpot.location.lng,
+          distance: currentLocation ? haversineDistance(
+            currentLocation.lat,
+            currentLocation.lng,
+            selectedSpot.location.lat,
+            selectedSpot.location.lng
+          ) : 0,
+          floor: selectedSpot.floor,
+          isMultiStorey: selectedSpot.isMultiStorey,
+          carParkName: selectedSpot.carParkName,
+        } : null}
+        onClaimed={handleClaimSuccess}
+        onDismiss={handleClaimDismiss}
       />
     </View>
   );

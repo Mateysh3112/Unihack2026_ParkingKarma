@@ -4,6 +4,9 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { FirestoreSpot, FloorSelectionResult, SpotStatus } from "../types";
@@ -25,7 +28,7 @@ export async function createFirestoreSpot(
     location: { lat, lng },
     status: "pending_movement",
     createdAt: Date.now(),
-    broadcastAt: 67,
+    broadcastAt: null,
     claimedBy: null,
     claimedAt: null,
     karmaAwarded: false,
@@ -91,6 +94,55 @@ export function subscribeToSpot(
   return onSnapshot(doc(db, "spots", spotId), (snap) => {
     callback(snap.exists() ? (snap.data() as FirestoreSpot) : null);
   });
+}
+
+/** Fetch all currently broadcasting spots. */
+export async function fetchBroadcastingSpots(): Promise<FirestoreSpot[]> {
+  if (!db) return [];
+
+  try {
+    const q = query(
+      collection(db, "spots"),
+      where("status", "==", "broadcasting"),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(
+      (doc) =>
+        ({ id: doc.id, ...doc.data() }) as FirestoreSpot & { id: string },
+    );
+  } catch (error) {
+    console.error("Error fetching broadcasting spots:", error);
+    return [];
+  }
+}
+
+/** Subscribe to real-time updates of all broadcasting spots. Returns unsubscribe function. */
+export function subscribeToBroadcastingSpots(
+  callback: (spots: (FirestoreSpot & { id: string })[]) => void,
+): () => void {
+  if (!db) {
+    callback([]);
+    return () => {};
+  }
+
+  const q = query(
+    collection(db, "spots"),
+    where("status", "==", "broadcasting"),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const spots = snap.docs.map(
+        (doc) =>
+          ({ id: doc.id, ...doc.data() }) as FirestoreSpot & { id: string },
+      );
+      callback(spots);
+    },
+    (error) => {
+      console.error("Error subscribing to broadcasting spots:", error);
+      callback([]);
+    },
+  );
 }
 
 /** Record a location tag for fraud detection. */
