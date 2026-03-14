@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Easing,
@@ -8,11 +8,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { useVerificationStore } from '../store/useVerificationStore';
-import { useAppStore } from '../store/useAppStore';
-import { SPEED_GATES, SPEED_THRESHOLD_KMH } from '../services/movement';
-import { KARMA_REWARDS } from '../services/karma';
+} from "react-native";
+import { useVerificationStore } from "../store/useVerificationStore";
+import { useAppStore } from "../store/useAppStore";
+import { SPEED_GATES, SPEED_THRESHOLD_KMH } from "../services/movement";
+import { KARMA_REWARDS } from "../services/karma";
 
 interface Props {
   visible: boolean;
@@ -30,18 +30,28 @@ function DebugPanel() {
   } = useVerificationStore();
 
   const convertedSpeedKmh =
-    debugRawSpeedMs !== null && debugRawSpeedMs >= 0 ? debugRawSpeedMs * 3.6 : 0;
+    debugRawSpeedMs !== null && debugRawSpeedMs >= 0
+      ? debugRawSpeedMs * 3.6
+      : 0;
 
   return (
     <View style={styles.debugPanel}>
       <Text style={styles.debugTitle}>GPS Debug</Text>
       <Text style={styles.debugRow}>
-        Raw GPS speed: {debugRawSpeedMs !== null ? `${debugRawSpeedMs.toFixed(3)} m/s` : 'null'}
+        Raw GPS speed:{" "}
+        {debugRawSpeedMs !== null
+          ? `${debugRawSpeedMs.toFixed(3)} m/s`
+          : "null"}
       </Text>
-      <Text style={styles.debugRow}>Converted speed: {convertedSpeedKmh.toFixed(2)} km/h</Text>
-      <Text style={styles.debugRow}>Rolling average: {currentSpeed.toFixed(2)} km/h</Text>
       <Text style={styles.debugRow}>
-        GPS accuracy: {debugGpsAccuracy !== null ? `${debugGpsAccuracy.toFixed(1)} m` : 'n/a'}
+        Converted speed: {convertedSpeedKmh.toFixed(2)} km/h
+      </Text>
+      <Text style={styles.debugRow}>
+        Rolling average: {currentSpeed.toFixed(2)} km/h
+      </Text>
+      <Text style={styles.debugRow}>
+        GPS accuracy:{" "}
+        {debugGpsAccuracy !== null ? `${debugGpsAccuracy.toFixed(1)} m` : "n/a"}
       </Text>
       <Text style={styles.debugRow}>GPS readings: {debugGpsReadingCount}</Text>
       <Text style={styles.debugRow}>State: {verificationStatus}</Text>
@@ -64,10 +74,10 @@ function SpeedGauge({ speed }: { speed: number }) {
 
   const color =
     speed < SPEED_GATES.STATIONARY_MAX
-      ? '#FF3B30'
+      ? "#FF3B30"
       : speed < SPEED_GATES.SUSPICIOUS_MAX
-        ? '#FF9500'
-        : '#34C759';
+        ? "#FF9500"
+        : "#34C759";
 
   return (
     <View style={styles.gaugeContainer}>
@@ -78,7 +88,7 @@ function SpeedGauge({ speed }: { speed: number }) {
             {
               width: width.interpolate({
                 inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
+                outputRange: ["0%", "100%"],
               }),
               backgroundColor: color,
             },
@@ -113,7 +123,7 @@ function ProgressBar({ progress }: { progress: number }) {
             {
               width: width.interpolate({
                 inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
+                outputRange: ["0%", "100%"],
               }),
             },
           ]}
@@ -137,24 +147,32 @@ function MonitoringPhase({ onCancel }: { onCancel: () => void }) {
   const mins = Math.floor(timeRemaining / 60);
   const secs = timeRemaining % 60;
   const isSuspicious =
-    verificationStatus === 'suspicious' || verificationStatus === 'verified';
+    verificationStatus === "suspicious" || verificationStatus === "verified";
 
   return (
     <View style={styles.phaseContainer}>
       <Text style={styles.hero}>CAR</Text>
       <Text style={styles.phaseTitle}>
-        {verificationStatus === 'verified' ? 'Verified' : 'Leaving Verification'}
+        {verificationStatus === "verified"
+          ? "Verified"
+          : "Leaving Verification"}
       </Text>
       <Text style={styles.statusMsg}>{statusMessage}</Text>
       <SpeedGauge speed={currentSpeed} />
       {isSuspicious && <ProgressBar progress={confirmationProgress} />}
       <Text style={styles.secondary}>
-        {isMovingAway ? 'Moving away from tagged spot' : 'Need distance away from tagged spot'}
+        {isMovingAway
+          ? "Moving away from tagged spot"
+          : "Need distance away from tagged spot"}
       </Text>
-      {accelPattern ? <Text style={styles.secondary}>{accelPattern}</Text> : null}
-      {!isSuspicious ? <Text style={styles.passiveMsg}>{passiveMessage}</Text> : null}
+      {accelPattern ? (
+        <Text style={styles.secondary}>{accelPattern}</Text>
+      ) : null}
+      {!isSuspicious ? (
+        <Text style={styles.passiveMsg}>{passiveMessage}</Text>
+      ) : null}
       <Text style={styles.countdown}>
-        {mins}:{secs.toString().padStart(2, '0')} remaining
+        {mins}:{secs.toString().padStart(2, "0")} remaining
       </Text>
       <View style={styles.legend}>
         <Text style={styles.legendText}>0-5 km/h: stationary or walking</Text>
@@ -186,12 +204,14 @@ function BroadcastingPhase() {
 
   const rotate = spin.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   });
 
   return (
     <View style={styles.phaseContainer}>
-      <Animated.Text style={[styles.hero, { transform: [{ rotate }] }]}>LIVE</Animated.Text>
+      <Animated.Text style={[styles.hero, { transform: [{ rotate }] }]}>
+        LIVE
+      </Animated.Text>
       <Text style={styles.phaseTitle}>Spot Broadcast Live</Text>
       <Text style={styles.statusMsg}>{statusMessage}</Text>
       <Text style={styles.pendingKarma}>
@@ -222,10 +242,12 @@ function TerminalPhase({ onClose }: { onClose: () => void }) {
   return (
     <View style={styles.phaseContainer}>
       <Text style={styles.hero}>
-        {verificationStatus === 'spoofed' ? 'GPS' : 'STOP'}
+        {verificationStatus === "spoofed" ? "GPS" : "STOP"}
       </Text>
       <Text style={styles.phaseTitle}>
-        {verificationStatus === 'spoofed' ? 'Spoofing Detected' : 'Verification Stopped'}
+        {verificationStatus === "spoofed"
+          ? "Spoofing Detected"
+          : "Verification Stopped"}
       </Text>
       <Text style={styles.statusMsg}>{statusMessage}</Text>
       <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
@@ -236,12 +258,16 @@ function TerminalPhase({ onClose }: { onClose: () => void }) {
 }
 
 export function LeavingVerificationScreen({ visible, onClose }: Props) {
-  const { verificationStatus, claimStatus, resetVerification, cancelVerification } =
-    useVerificationStore();
+  const {
+    verificationStatus,
+    claimStatus,
+    resetVerification,
+    cancelVerification,
+  } = useVerificationStore();
   const { addKarma, incrementSpotsShared } = useAppStore();
 
   useEffect(() => {
-    if (claimStatus === 'claimed') {
+    if (claimStatus === "claimed") {
       addKarma(KARMA_REWARDS.SHARE_SPOT);
       incrementSpotsShared();
     }
@@ -254,19 +280,23 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
 
   const renderPhase = () => {
     if (
-      verificationStatus === 'monitoring' ||
-      verificationStatus === 'suspicious' ||
-      verificationStatus === 'verified'
+      verificationStatus === "monitoring" ||
+      verificationStatus === "suspicious" ||
+      verificationStatus === "verified"
     ) {
-      return <MonitoringPhase onCancel={() => cancelVerification('manual')} />;
+      return <MonitoringPhase onCancel={() => cancelVerification("manual")} />;
     }
 
-    if (verificationStatus === 'broadcasted') {
-      if (claimStatus === 'claimed') return <ClaimedPhase onClose={handleClose} />;
+    if (verificationStatus === "broadcasted") {
+      if (claimStatus === "claimed")
+        return <ClaimedPhase onClose={handleClose} />;
       return <BroadcastingPhase />;
     }
 
-    if (verificationStatus === 'cancelled' || verificationStatus === 'spoofed') {
+    if (
+      verificationStatus === "cancelled" ||
+      verificationStatus === "spoofed"
+    ) {
       return <TerminalPhase onClose={handleClose} />;
     }
 
@@ -274,7 +304,11 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Parking Karma</Text>
@@ -291,167 +325,167 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: "#0D0D0D",
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#222',
+    borderBottomColor: "#222",
   },
   headerTitle: {
-    color: '#FF6B35',
+    color: "#FF6B35",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   headerClose: {
-    color: '#888',
+    color: "#888",
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 24,
   },
   phaseContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 14,
   },
   hero: {
     fontSize: 42,
-    fontWeight: '900',
-    color: '#FF6B35',
+    fontWeight: "900",
+    color: "#FF6B35",
   },
   phaseTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 24,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontWeight: "800",
+    textAlign: "center",
   },
   statusMsg: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 16,
     lineHeight: 24,
-    textAlign: 'center',
+    textAlign: "center",
   },
   secondary: {
-    color: '#9D9D9D',
+    color: "#9D9D9D",
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
   },
   passiveMsg: {
-    color: '#FF9500',
+    color: "#FF9500",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
   countdown: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   gaugeContainer: {
-    width: '100%',
+    width: "100%",
     gap: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   gaugeTrack: {
-    width: '100%',
+    width: "100%",
     height: 12,
     borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: '#222',
+    overflow: "hidden",
+    backgroundColor: "#222",
   },
   gaugeFill: {
-    height: '100%',
+    height: "100%",
   },
   speedText: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   progressWrap: {
-    width: '100%',
+    width: "100%",
     gap: 8,
   },
   progressLabel: {
-    color: '#34C759',
+    color: "#34C759",
     fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
   progressTrack: {
-    width: '100%',
+    width: "100%",
     height: 10,
     borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: '#1A3D2B',
+    overflow: "hidden",
+    backgroundColor: "#1A3D2B",
   },
   progressFill: {
-    height: '100%',
-    backgroundColor: '#34C759',
+    height: "100%",
+    backgroundColor: "#34C759",
   },
   legend: {
-    width: '100%',
+    width: "100%",
     gap: 6,
-    backgroundColor: '#171717',
+    backgroundColor: "#171717",
     borderRadius: 12,
     padding: 12,
   },
   legendText: {
-    color: '#B5B5B5',
+    color: "#B5B5B5",
     fontSize: 13,
   },
   pendingKarma: {
-    color: '#34C759',
+    color: "#34C759",
     fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
   },
   debugPanel: {
-    width: '100%',
-    backgroundColor: '#141826',
+    width: "100%",
+    backgroundColor: "#141826",
     borderWidth: 1,
-    borderColor: '#2A3352',
+    borderColor: "#2A3352",
     borderRadius: 12,
     padding: 12,
     gap: 4,
   },
   debugTitle: {
-    color: '#7BB3FF',
+    color: "#7BB3FF",
     fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   debugRow: {
-    color: '#C9D6FF',
+    color: "#C9D6FF",
     fontSize: 12,
-    fontFamily: 'Courier New',
+    fontFamily: "Courier New",
   },
   primaryButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: "#34C759",
     paddingHorizontal: 40,
     paddingVertical: 14,
     borderRadius: 12,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   cancelButton: {
-    backgroundColor: '#2A2A2A',
+    backgroundColor: "#2A2A2A",
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: "#444",
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
   },
   cancelButtonText: {
-    color: '#AAAAAA',
+    color: "#AAAAAA",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
