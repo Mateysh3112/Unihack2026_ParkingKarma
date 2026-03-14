@@ -38,7 +38,6 @@ const styles = StyleSheet.create({
     borderColor: PD.border,
     backgroundColor: PD.border,
     transform: [{ translateX: 3 }, { translateY: 3 }],
-    alignSelf: 'flex-start',
   },
   shadowLayerLarge: {
     transform: [{ translateX: 4 }, { translateY: 4 }],
