@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { useKarma } from '../hooks/useKarma';
 import { KarmaBadge } from '../components/KarmaBadge';
 import { KARMA_TIERS } from '../services/karma';
+import { PD, pdCard, pdTitle, pdLabel, pdMuted } from '../theme';
 
 export function KarmaScreen() {
   const { user } = useAppStore();
@@ -11,46 +12,57 @@ export function KarmaScreen() {
   const progressPercent = Math.round(progressToNextTier * 100);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Your Karma</Text>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
+      <Text style={styles.title}>YOUR KARMA</Text>
 
       <View style={styles.badgeWrap}>
         <KarmaBadge tier={user.tier} karma={user.karma} size="large" />
       </View>
 
+      {/* Progress card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
-          Progress to {nextTier?.tier ?? '✨ Max Tier reached!'}
+          PROGRESS → {nextTier?.tier?.toUpperCase() ?? 'MAX TIER'}
         </Text>
+        {/* Pixel progress bar — outer track */}
         <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${progressPercent}%`, backgroundColor: tierInfo.color },
-            ]}
-          />
+          <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: tierInfo.color }]} />
+          {/* Dashed overlay grid lines for pixel feel */}
+          {Array.from({ length: 9 }).map((_, i) => (
+            <View key={i} style={[styles.progressTick, { left: `${(i + 1) * 10}%` as any }]} />
+          ))}
         </View>
         <Text style={styles.progressLabel}>{progressPercent}%</Text>
       </View>
 
+      {/* Stats card */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Stats</Text>
-        <StatRow label="Spots Shared" value={String(user.spotsShared)} />
-        <StatRow label="Spots Used" value={String(user.spotsUsed)} />
-        <StatRow label="Total Karma" value={`${user.karma} pts`} last />
+        <Text style={styles.cardTitle}>STATS</Text>
+        <StatRow label="SPOTS SHARED" value={String(user.spotsShared)} />
+        <StatRow label="SPOTS USED" value={String(user.spotsUsed)} />
+        <StatRow label="TOTAL KARMA" value={`${user.karma} PTS`} last />
       </View>
 
+      {/* Tier ladder */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Tier Ladder</Text>
-        {KARMA_TIERS.map((t) => (
+        <Text style={styles.cardTitle}>TIER LADDER</Text>
+        {KARMA_TIERS.map((t, i) => (
           <View
             key={t.tier}
-            style={[styles.tierRow, user.tier === t.tier && { backgroundColor: t.color + '22' }]}
+            style={[
+              styles.tierRow,
+              i < KARMA_TIERS.length - 1 && styles.tierRowBorder,
+              user.tier === t.tier && { backgroundColor: PD.accentBg },
+            ]}
           >
             <Text style={styles.tierEmoji}>{t.emoji}</Text>
-            <Text style={[styles.tierName, { color: t.color }]}>{t.tier}</Text>
-            <Text style={styles.tierMin}>{t.min}+ pts</Text>
-            {user.tier === t.tier && <Text style={styles.currentTag}>YOU</Text>}
+            <Text style={[styles.tierName, { color: t.color }]}>{t.tier.toUpperCase()}</Text>
+            <Text style={styles.tierMin}>{t.min}+ PTS</Text>
+            {user.tier === t.tier && (
+              <View style={styles.youTag}>
+                <Text style={styles.youTagText}>YOU</Text>
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -60,7 +72,7 @@ export function KarmaScreen() {
 
 function StatRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={[styles.statRow, last && styles.statRowLast]}>
+    <View style={[styles.statRow, !last && styles.statRowBorder]}>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
     </View>
@@ -68,53 +80,81 @@ function StatRow({ label, value, last }: { label: string; value: string; last?: 
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, paddingBottom: 48 },
-  title: { fontSize: 28, fontWeight: '800', color: '#1a1a1a', marginBottom: 16 },
-  badgeWrap: { alignItems: 'flex-start', marginBottom: 4 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
-    elevation: 3,
+  scroll: { backgroundColor: PD.bg },
+  container: { padding: 16, paddingBottom: 48 },
+  title: { ...pdTitle, marginBottom: 20 },
+  badgeWrap: { alignItems: 'flex-start', marginBottom: 20 },
+
+  card: { ...pdCard, marginBottom: 16 },
+  cardTitle: {
+    ...pdLabel,
+    fontSize: 12,
+    marginBottom: 14,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: PD.border,
   },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#333', marginBottom: 12 },
-  progressTrack: { height: 10, backgroundColor: '#eee', borderRadius: 5, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 5 },
-  progressLabel: { textAlign: 'right', fontSize: 12, color: '#888', marginTop: 4 },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+
+  progressTrack: {
+    height: 20,
+    backgroundColor: PD.bg,
+    borderWidth: 2,
+    borderColor: PD.border,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  statRowLast: { borderBottomWidth: 0 },
-  statLabel: { color: '#555', fontSize: 15 },
-  statValue: { fontWeight: '700', fontSize: 15, color: '#1a1a1a' },
+  progressFill: { height: '100%' },
+  progressTick: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: PD.border,
+    opacity: 0.2,
+  },
+  progressLabel: { ...pdMuted, textAlign: 'right', marginTop: 6 },
+
+  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  statRowBorder: { borderBottomWidth: 2, borderBottomColor: PD.border },
+  statLabel: { ...pdMuted },
+  statValue: {
+    fontFamily: PD.fontMono,
+    fontWeight: '900',
+    fontSize: 13,
+    color: PD.ink,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
   tierRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 8,
-    borderRadius: 10,
-    marginBottom: 4,
     gap: 10,
   },
-  tierEmoji: { fontSize: 20 },
-  tierName: { fontWeight: '700', fontSize: 15, flex: 1 },
-  tierMin: { color: '#888', fontSize: 13 },
-  currentTag: {
-    backgroundColor: '#FF6B35',
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
+  tierRowBorder: { borderBottomWidth: 2, borderBottomColor: PD.border },
+  tierEmoji: { fontSize: 20, width: 28 },
+  tierName: {
+    fontFamily: PD.fontMono,
+    fontWeight: '900',
+    fontSize: 13,
+    flex: 1,
+    letterSpacing: 1,
+  },
+  tierMin: { ...pdMuted },
+  youTag: {
+    backgroundColor: PD.accent,
+    borderWidth: 2,
+    borderColor: PD.border,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+  },
+  youTagText: {
+    fontFamily: PD.fontMono,
+    color: PD.white,
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
 });
