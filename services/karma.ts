@@ -23,7 +23,9 @@ export function getNextTier(karma: number) {
 }
 
 export const KARMA_REWARDS = {
-  SHARE_SPOT: 10,
-  SPOT_USED: 5,
+  SHARE_SPOT: 15,          // awarded when someone claims your shared spot
+  SPOT_CLAIMED: 5,         // awarded to the claimer for using the app correctly
   DAILY_CHECKIN: 2,
+  THEFT_PENALTY: -10,      // applied to parking sinners
+  CAR_PARK_DISCOVERY: 5,   // awarded for first-time community car park addition
 };
