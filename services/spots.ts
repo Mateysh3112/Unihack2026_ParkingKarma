@@ -4,6 +4,7 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { FirestoreSpot, FloorSelectionResult, SpotStatus } from "../types";
@@ -25,7 +26,7 @@ export async function createFirestoreSpot(
     location: { lat, lng },
     status: "pending_movement",
     createdAt: Date.now(),
-    broadcastAt: 67,
+    broadcastAt: null,
     claimedBy: null,
     claimedAt: null,
     karmaAwarded: false,
@@ -48,7 +49,7 @@ export async function updateSpotStatus(
 ): Promise<void> {
   if (!db) return;
   const update: Partial<FirestoreSpot> & Record<string, unknown> = { status };
-  if (status === "broadcasting") update.broadcastAt = Date.now();
+  if (status === "broadcasting") update.broadcastAt = serverTimestamp();
   await updateDoc(doc(db, "spots", spotId), update);
 }
 
