@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useAppStore } from "../store/useAppStore";
+import { updateUserProfile } from "../services/user";
 import { KarmaBadge } from "../components/KarmaBadge";
 import { PD, pdCard, pdTitle, pdLabel, pdMuted } from "../theme";
 
@@ -20,6 +21,29 @@ export function ProfileScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Sign Out", style: "destructive", onPress: signOut },
     ]);
+  };
+
+  const handleUpdatePhotoURL = () => {
+    Alert.prompt(
+      "Update Profile Image",
+      "Enter the URL of your profile image:",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Update",
+          onPress: async (url?: string) => {
+            if (url && user) {
+              // Update Firestore
+              await updateUserProfile(user.id, { photoURL: url });
+              // Update local state
+              useAppStore.setState({ user: { ...user, photoURL: url } });
+            }
+          },
+        },
+      ],
+      "plain-text",
+      user?.photoURL || "",
+    );
   };
 
   if (!user) {
@@ -59,6 +83,17 @@ export function ProfileScreen() {
         <StatRow label="SPOTS SHARED" value={String(user.spotsShared)} />
         <StatRow label="SPOTS USED" value={String(user.spotsUsed)} />
         <StatRow label="TOTAL KARMA" value={`${user.karma} PTS`} last />
+      </View>
+
+      {/* Update Profile Image */}
+      <View style={styles.updateImageShadow}>
+        <TouchableOpacity
+          style={styles.updateImageBtn}
+          onPress={handleUpdatePhotoURL}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.updateImageText}>UPDATE PROFILE IMAGE</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Sign Out */}
@@ -205,6 +240,28 @@ const styles = StyleSheet.create({
   signOutText: {
     fontFamily: PD.fontMono,
     color: "#F44336", // Red color for sign out
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+
+  updateImageShadow: {
+    backgroundColor: PD.border,
+    transform: [{ translateX: 3 }, { translateY: 3 }],
+    marginBottom: 16,
+  },
+  updateImageBtn: {
+    backgroundColor: PD.bg,
+    borderWidth: 2,
+    borderColor: PD.border,
+    padding: 14,
+    alignItems: "center",
+    transform: [{ translateX: -3 }, { translateY: -3 }],
+  },
+  updateImageText: {
+    fontFamily: PD.fontMono,
+    color: PD.ink,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 2,

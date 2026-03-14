@@ -26,12 +26,10 @@ export function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnonLoading, setAnonIsLoading] = useState(false);
 
   const displayNameRef = useRef<TextInput>(null);
-  const photoRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
@@ -79,11 +77,10 @@ export function AuthScreen() {
         // Update auth profile (so future sign-ins include this info)
         await updateProfile(userCredential.user, {
           displayName,
-          photoURL: photoURL ?? undefined,
         });
 
-        // Ensure Firestore profile includes display name + photo URL
-        await createUserProfile(userCredential.user, displayName, photoURL);
+        // Ensure Firestore profile includes display name
+        await createUserProfile(userCredential.user, displayName);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -143,17 +140,6 @@ export function AuthScreen() {
                   value={displayName}
                   onChangeText={setDisplayName}
                   autoCapitalize="words"
-                  returnKeyType="next"
-                  onSubmitEditing={() => photoRef.current?.focus()}
-                />
-                <TextInput
-                  ref={photoRef}
-                  style={styles.input}
-                  placeholder="Profile Image URL (optional)"
-                  value={photoURL ?? ""}
-                  onChangeText={(text) => setPhotoURL(text || null)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
                   returnKeyType="next"
                   onSubmitEditing={() => emailRef.current?.focus()}
                 />
