@@ -39,9 +39,9 @@ export async function createSpot(data: SpotData): Promise<string> {
     .select('id')
     .single();
   if (error) {
-    console.error('Create spot error:', error);
-    return `local_${Date.now()}`;
-  }
+  console.error('Create spot error:', error);
+  throw new Error(`Failed to create spot: ${error.message}`);
+}
   return spot.id;
 }
 
