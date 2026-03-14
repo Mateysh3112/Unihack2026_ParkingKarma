@@ -1,33 +1,32 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { getTierInfo } from '../services/karma';
-import { LeaderboardEntry } from '../types';
-import { PD, pdTitle, pdLabel, pdMuted } from '../theme';
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, FlatList } from "react-native";
+import { getTierInfo } from "../services/karma";
+import { LeaderboardEntry } from "../types";
+import { PD, pdTitle, pdLabel, pdMuted } from "../theme";
+import { useAppStore } from "../store/useAppStore";
 
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { userId: '1',      name: 'DragonParker99',  karma: 850, tier: 'Dragon',      rank: 1 },
-  { userId: '2',      name: 'ZenSpotter',      karma: 612, tier: 'Dragon',      rank: 2 },
-  { userId: '3',      name: 'LotWhisperer',    karma: 420, tier: 'Enlightened', rank: 3 },
-  { userId: '4',      name: 'KarmaKruizer',    karma: 315, tier: 'Enlightened', rank: 4 },
-  { userId: '5',      name: 'BayBuddy',        karma: 280, tier: 'Enlightened', rank: 5 },
-  { userId: 'user_1', name: 'Parking Pilgrim', karma: 50,  tier: 'Seedling',    rank: 6 },
-  { userId: '7',      name: 'SlotSeeker',      karma: 30,  tier: 'Seedling',    rank: 7 },
-  { userId: '8',      name: 'CurbCrawler',     karma: 15,  tier: 'Seedling',    rank: 8 },
-];
+const RANK_LABELS = ["01", "02", "03"];
 
-const RANK_LABELS = ['01', '02', '03'];
-
-function LeaderboardRow({ item, index }: { item: LeaderboardEntry; index: number }) {
+function LeaderboardRow({
+  item,
+  index,
+}: {
+  item: LeaderboardEntry;
+  index: number;
+}) {
+  const { user } = useAppStore();
   const info = getTierInfo(item.tier);
-  const isMe = item.userId === 'user_1';
+  const isMe = user && item.userId === user.id;
   const isTop3 = item.rank <= 3;
 
   return (
     // Pixel drop-shadow for top 3
     <View style={[styles.rowShadow, isTop3 && styles.rowShadowTop3]}>
-      <View style={[styles.row, isMe && styles.rowMe, isTop3 && styles.rowTop3]}>
+      <View
+        style={[styles.row, isMe && styles.rowMe, isTop3 && styles.rowTop3]}
+      >
         <Text style={[styles.rank, isTop3 && { color: PD.accent }]}>
-          #{String(item.rank).padStart(2, '0')}
+          #{String(item.rank).padStart(2, "0")}
         </Text>
         <Text style={styles.tierEmoji}>{info.emoji}</Text>
         <View style={styles.nameBlock}>
@@ -47,12 +46,31 @@ function LeaderboardRow({ item, index }: { item: LeaderboardEntry; index: number
 }
 
 export function LeaderboardScreen() {
+  const { leaderboard, loadLeaderboard, isLoading, user } = useAppStore();
+
+  useEffect(() => {
+    loadLeaderboard();
+  }, [user?.karma]); // Refresh leaderboard when user's karma changes
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>LEADERBOARD</Text>
+          <Text style={styles.subtitle}>LOADING...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={MOCK_LEADERBOARD}
+        data={leaderboard}
         keyExtractor={(item) => item.userId}
-        renderItem={({ item, index }) => <LeaderboardRow item={item} index={index} />}
+        renderItem={({ item, index }) => (
+          <LeaderboardRow item={item} index={index} />
+        )}
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={styles.title}>LEADERBOARD</Text>
@@ -61,6 +79,13 @@ export function LeaderboardScreen() {
         }
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>
+              No users found. Be the first to earn karma!
+            </Text>
+          </View>
+        }
       />
     </View>
   );
@@ -82,8 +107,8 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 4 }, { translateY: 4 }],
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: PD.surface,
     borderWidth: 2,
     borderColor: PD.border,
@@ -99,7 +124,7 @@ const styles = StyleSheet.create({
 
   rank: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 14,
     color: PD.inkLight,
     width: 36,
@@ -109,7 +134,7 @@ const styles = StyleSheet.create({
   nameBlock: { flex: 1 },
   name: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 13,
     color: PD.ink,
     letterSpacing: 1,
@@ -118,16 +143,18 @@ const styles = StyleSheet.create({
   tierLabel: {
     fontFamily: PD.fontMono,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 1,
     marginTop: 2,
   },
   karma: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 13,
     color: PD.ink,
     letterSpacing: 1,
   },
   separator: { height: 10 },
+  empty: { padding: 40, alignItems: "center" },
+  emptyText: { ...pdMuted, textAlign: "center" },
 });

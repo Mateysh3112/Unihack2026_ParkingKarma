@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,26 +9,26 @@ import {
   Easing,
   SafeAreaView,
   Alert,
-} from 'react-native';
-import * as Location from 'expo-location';
-import { useAppStore } from '../store/useAppStore';
-import { KARMA_REWARDS } from '../services/karma';
-import { TIMEOUTS, haversineDistance, SPEED_GATES } from '../services/movement';
-import { floorLabel } from '../services/barometer';
+} from "react-native";
+import * as Location from "expo-location";
+import { useAppStore } from "../store/useAppStore";
+import { KARMA_REWARDS } from "../services/karma";
+import { TIMEOUTS, haversineDistance, SPEED_GATES } from "../services/movement";
+import { floorLabel } from "../services/barometer";
 import {
   startTheftTracking,
   stopTheftTracking,
   updateSuspectLocation,
-} from '../services/anticheat';
-import { claimFirestoreSpot } from '../services/spots';
+} from "../services/anticheat";
+import { claimFirestoreSpot } from "../services/spots";
 
 interface NearbySpot {
   id: string;
   sharerId: string;
   lat: number;
   lng: number;
-  distance: number;       // metres from user
-  floor?: number;         // signed int: 0=G, 1=Floor 1, -1=B1 …
+  distance: number; // metres from user
+  floor?: number; // signed int: 0=G, 1=Floor 1, -1=B1 …
   isMultiStorey?: boolean;
   carParkName?: string | null;
 }
@@ -50,8 +50,10 @@ function ClaimCountdown({ expiresIn }: { expiresIn: number }) {
 
   return (
     <View style={[styles.countdownRing, urgent && styles.countdownRingUrgent]}>
-      <Text style={[styles.countdownText, urgent && styles.countdownTextUrgent]}>
-        {mins}:{secs.toString().padStart(2, '0')}
+      <Text
+        style={[styles.countdownText, urgent && styles.countdownTextUrgent]}
+      >
+        {mins}:{secs.toString().padStart(2, "0")}
       </Text>
       <Text style={styles.countdownLabel}>to claim</Text>
     </View>
@@ -61,12 +63,25 @@ function ClaimCountdown({ expiresIn }: { expiresIn: number }) {
 // ---------------------------------------------------------------------------
 // Main screen
 // ---------------------------------------------------------------------------
-export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) {
+export function SpotClaimScreen({
+  visible,
+  spot,
+  onClaimed,
+  onDismiss,
+}: Props) {
   const [claimed, setClaimed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expiresIn, setExpiresIn] = useState(600); // 10 minutes
 
-  const { user, addKarma, incrementSpotsUsed, applyParkingSinner, removeKarma } = useAppStore();
+  const {
+    user,
+    addKarma,
+    incrementSpotsUsed,
+    applyParkingSinner,
+    removeKarma,
+  } = useAppStore();
+
+  const isOwnSpot = !!user && !!spot && spot.sharerId === user.id;
 
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -74,7 +89,7 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
 
   // Slide in on mount
   useEffect(() => {
-    if (visible && spot) {
+    if (visible && spot && user) {
       setClaimed(false);
       setDismissed(false);
       setExpiresIn(600);
@@ -110,9 +125,17 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
 
       // Watch user's location to update theft tracker
       Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 10 },
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5000,
+          distanceInterval: 10,
+        },
         (loc) => {
-          updateSuspectLocation(user.id, loc.coords.latitude, loc.coords.longitude);
+          updateSuspectLocation(
+            user.id,
+            loc.coords.latitude,
+            loc.coords.longitude,
+          );
         },
       ).then((sub) => {
         locationSubRef.current = sub;
@@ -122,7 +145,7 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
     return () => {
       cleanup();
     };
-  }, [visible, spot?.id]);
+  }, [visible, spot?.id, user?.id]);
 
   const cleanup = useCallback(() => {
     locationSubRef.current?.remove();
@@ -131,8 +154,8 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
       clearInterval(countdownRef.current);
       countdownRef.current = null;
     }
-    if (spot) stopTheftTracking(user.id);
-  }, [spot, user.id]);
+    if (spot && user) stopTheftTracking(user.id);
+  }, [spot, user?.id]);
 
   // ---------------------------------------------------------------------------
   // Theft detected — user was within 20m of spot but never claimed
@@ -167,7 +190,15 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
   // User taps "Claimed!"
   // ---------------------------------------------------------------------------
   const handleClaim = async () => {
-    if (!spot) return;
+    if (!spot || !user) return;
+
+    if (spot.sharerId === user.id) {
+      Alert.alert(
+        "Can't claim your own spot",
+        "You created this spot, so you can't claim it. Share it with others instead.",
+      );
+      return;
+    }
 
     // Cancel theft tracking — they claimed legitimately
     stopTheftTracking(user.id);
@@ -210,7 +241,9 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
   return (
     <Modal visible={visible} transparent animationType="none">
       <View style={styles.overlay}>
-        <Animated.View style={[styles.card, { transform: [{ translateY: slideIn }] }]}>
+        <Animated.View
+          style={[styles.card, { transform: [{ translateY: slideIn }] }]}
+        >
           <View style={styles.cardHandle} />
 
           {/* Header */}
@@ -236,11 +269,12 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
           </View>
 
           {/* Floor / car park info — only shown for multi-storey spots */}
-          {(spot.isMultiStorey || (spot.floor !== undefined && spot.floor !== 0)) && (
+          {(spot.isMultiStorey ||
+            (spot.floor !== undefined && spot.floor !== 0)) && (
             <View style={styles.infoRow}>
               <Text style={styles.infoIcon}>🏢</Text>
               <Text style={styles.infoText}>
-                {spot.carParkName ? `${spot.carParkName} · ` : ''}
+                {spot.carParkName ? `${spot.carParkName} · ` : ""}
                 Floor {floorLabel(spot.floor ?? 0)}
               </Text>
             </View>
@@ -261,11 +295,23 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
           </View>
 
           {/* Actions */}
-          <TouchableOpacity style={styles.claimButton} onPress={handleClaim}>
-            <Text style={styles.claimButtonText}>Claimed! 🎉</Text>
+          <TouchableOpacity
+            style={[
+              styles.claimButton,
+              isOwnSpot && styles.claimButtonDisabled,
+            ]}
+            onPress={handleClaim}
+            disabled={isOwnSpot}
+          >
+            <Text style={styles.claimButtonText}>
+              {isOwnSpot ? "Cannot Claim Your Own" : "CLAIM"}
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.dismissButton} onPress={handleDismiss}>
+          <TouchableOpacity
+            style={styles.dismissButton}
+            onPress={handleDismiss}
+          >
             <Text style={styles.dismissButtonText}>Not interested</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -280,11 +326,11 @@ export function SpotClaimScreen({ visible, spot, onClaimed, onDismiss }: Props) 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   card: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: "#1A1A1A",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -296,13 +342,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#444',
-    alignSelf: 'center',
+    backgroundColor: "#444",
+    alignSelf: "center",
     marginBottom: 8,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   spotEmoji: {
@@ -312,12 +358,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   cardSubtitle: {
-    color: '#888',
+    color: "#888",
     fontSize: 14,
     marginTop: 2,
   },
@@ -326,32 +372,32 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 3,
-    borderColor: '#FF9500',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#FF9500",
+    justifyContent: "center",
+    alignItems: "center",
   },
   countdownRingUrgent: {
-    borderColor: '#FF3B30',
+    borderColor: "#FF3B30",
   },
   countdownText: {
-    color: '#FF9500',
+    color: "#FF9500",
     fontSize: 13,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    fontWeight: "700",
+    fontVariant: ["tabular-nums"],
   },
   countdownTextUrgent: {
-    color: '#FF3B30',
+    color: "#FF3B30",
   },
   countdownLabel: {
-    color: '#888',
+    color: "#888",
     fontSize: 9,
     marginTop: 1,
   },
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: "#2A2A2A",
     padding: 12,
     borderRadius: 10,
   },
@@ -359,40 +405,43 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   infoText: {
-    color: '#CCCCCC',
+    color: "#CCCCCC",
     fontSize: 14,
     flex: 1,
   },
   warningBox: {
-    backgroundColor: '#2A1F0A',
+    backgroundColor: "#2A1F0A",
     borderWidth: 1,
-    borderColor: '#FF9500',
+    borderColor: "#FF9500",
     borderRadius: 10,
     padding: 12,
   },
   warningText: {
-    color: '#FF9500',
+    color: "#FF9500",
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
   },
   claimButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: "#FF6B35",
     paddingVertical: 16,
     borderRadius: 14,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 4,
   },
+  claimButtonDisabled: {
+    backgroundColor: "#555",
+  },
   claimButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   dismissButton: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
   },
   dismissButtonText: {
-    color: '#888',
+    color: "#888",
     fontSize: 14,
   },
 });

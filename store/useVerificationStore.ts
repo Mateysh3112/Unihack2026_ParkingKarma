@@ -34,6 +34,7 @@ import {
   FloorSelectionResult,
   VerificationStatus,
 } from "../types";
+import { useAppStore } from "./useAppStore";
 
 let locationSub: Location.LocationSubscription | null = null;
 let accelSub: { remove: () => void } | null = null;
@@ -238,7 +239,16 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
         set({ spotId });
         // Subscribe to spot updates to know when it's claimed
         const unsubscribe = subscribeToSpot(spotId, (spot) => {
-          if (spot && spot.status === "claimed" && spot.claimedBy) {
+          if (
+            spot &&
+            spot.status === "claimed" &&
+            spot.claimedBy &&
+            spot.karmaAwarded
+          ) {
+            // Award karma to the sharer when their spot is claimed
+            const { addKarma, incrementSpotsShared } = useAppStore.getState();
+            addKarma(15); // SHARE_SPOT reward
+            incrementSpotsShared();
             get().onSpotClaimed(spot.claimedBy);
           }
         });

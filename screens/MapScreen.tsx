@@ -85,7 +85,7 @@ export function MapScreen() {
 
   const launchVerification = async (floorData?: FloorSelectionResult) => {
     const pendingLoc = pendingLocRef.current;
-    if (!pendingLoc) return;
+    if (!pendingLoc || !user) return;
 
     await startVerification(user.id, pendingLoc.lat, pendingLoc.lng, floorData);
     setVerificationVisible(true);
@@ -248,7 +248,7 @@ export function MapScreen() {
         carPark={detectedCarPark}
         altitude={detectedAltitude}
         estimatedFloor={detectedFloor}
-        userId={user.id}
+        userId={user?.id ?? ""}
         userLat={pendingLocRef.current?.lat ?? 0}
         userLng={pendingLocRef.current?.lng ?? 0}
         onConfirm={handleFloorConfirmed}
