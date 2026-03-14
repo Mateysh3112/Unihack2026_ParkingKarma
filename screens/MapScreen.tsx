@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { FABButton } from '../components/FABButton';
 import { useAppStore } from '../store/useAppStore';
 import { useKarma } from '../hooks/useKarma';
 import { ParkingSpot } from '../types';
+import { PD } from '../theme';
 
 const MELBOURNE = { latitude: -37.8136, longitude: 144.9631, latitudeDelta: 0.01, longitudeDelta: 0.01 };
 
@@ -28,12 +29,12 @@ export function MapScreen() {
 
   const handleLeaving = () => {
     Alert.alert(
-      'Share your spot?',
-      "Pin your current location as a free spot and earn 10 karma points!",
+      'SHARE YOUR SPOT?',
+      'Pin your current location as a free spot and earn 10 karma points!',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'CANCEL', style: 'cancel' },
         {
-          text: '🚗 Share it!',
+          text: 'SHARE IT',
           onPress: async () => {
             try {
               const loc = await Location.getCurrentPositionAsync({});
@@ -48,9 +49,9 @@ export function MapScreen() {
               };
               addSpot(spot);
               shareSpot();
-              Alert.alert('Spot shared! 🎉', 'You earned 10 karma points!');
+              Alert.alert('SPOT SHARED', 'You earned 10 karma points!');
             } catch {
-              Alert.alert('Error', 'Could not get your location. Please try again.');
+              Alert.alert('ERROR', 'Could not get your location. Please try again.');
             }
           },
         },
@@ -72,12 +73,22 @@ export function MapScreen() {
           <Marker
             key={spot.id}
             coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-            title="Free Spot!"
+            title="FREE SPOT"
             description="Shared by a Parking Karma user"
-            pinColor="#FF6B35"
+            pinColor={PD.accent}
           />
         ))}
       </MapView>
+
+      {/* Spot count HUD — top-left overlay */}
+      {spots.length > 0 && (
+        <View style={styles.hudShadow}>
+          <View style={styles.hud}>
+            <Text style={styles.hudText}>{spots.length} ACTIVE SPOT{spots.length !== 1 ? 'S' : ''}</Text>
+          </View>
+        </View>
+      )}
+
       <FABButton onPress={handleLeaving} />
     </View>
   );
@@ -86,4 +97,28 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+
+  hudShadow: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    backgroundColor: PD.border,
+    transform: [{ translateX: 3 }, { translateY: 3 }],
+  },
+  hud: {
+    backgroundColor: PD.bg,
+    borderWidth: 2,
+    borderColor: PD.border,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    transform: [{ translateX: -3 }, { translateY: -3 }],
+  },
+  hudText: {
+    fontFamily: PD.fontMono,
+    fontWeight: '900',
+    fontSize: 11,
+    color: PD.ink,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
 });
