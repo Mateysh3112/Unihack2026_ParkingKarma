@@ -81,6 +81,8 @@ export function SpotClaimScreen({
     removeKarma,
   } = useAppStore();
 
+  const isOwnSpot = !!user && !!spot && spot.sharerId === user.id;
+
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const slideIn = useRef(new Animated.Value(300)).current;
@@ -190,6 +192,14 @@ export function SpotClaimScreen({
   const handleClaim = async () => {
     if (!spot || !user) return;
 
+    if (spot.sharerId === user.id) {
+      Alert.alert(
+        "Can't claim your own spot",
+        "You created this spot, so you can't claim it. Share it with others instead.",
+      );
+      return;
+    }
+
     // Cancel theft tracking — they claimed legitimately
     stopTheftTracking(user.id);
     cleanup();
@@ -285,8 +295,17 @@ export function SpotClaimScreen({
           </View>
 
           {/* Actions */}
-          <TouchableOpacity style={styles.claimButton} onPress={handleClaim}>
-            <Text style={styles.claimButtonText}>CLAIM</Text>
+          <TouchableOpacity
+            style={[
+              styles.claimButton,
+              isOwnSpot && styles.claimButtonDisabled,
+            ]}
+            onPress={handleClaim}
+            disabled={isOwnSpot}
+          >
+            <Text style={styles.claimButtonText}>
+              {isOwnSpot ? "Cannot Claim Your Own" : "CLAIM"}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -408,6 +427,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     marginTop: 4,
+  },
+  claimButtonDisabled: {
+    backgroundColor: "#555",
   },
   claimButtonText: {
     color: "#FFFFFF",
