@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Image,
   View,
   Text,
   StyleSheet,
@@ -36,7 +37,16 @@ export function ProfileScreen() {
         {/* Pixel-art avatar: solid square with initial */}
         <View style={styles.avatarShadow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.name[0].toUpperCase()}</Text>
+            {user.photoURL ? (
+              <Image
+                source={{ uri: user.photoURL }}
+                style={styles.avatarImage}
+              />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user.name[0].toUpperCase()}
+              </Text>
+            )}
           </View>
         </View>
         <Text style={styles.name}>{user.name.toUpperCase()}</Text>
@@ -118,6 +128,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     transform: [{ translateX: -4 }, { translateY: -4 }],
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   avatarText: {
     fontFamily: PD.fontMono,

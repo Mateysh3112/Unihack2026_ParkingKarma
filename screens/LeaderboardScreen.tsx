@@ -46,11 +46,11 @@ function LeaderboardRow({
 }
 
 export function LeaderboardScreen() {
-  const { leaderboard, loadLeaderboard, isLoading } = useAppStore();
+  const { leaderboard, loadLeaderboard, isLoading, user } = useAppStore();
 
   useEffect(() => {
     loadLeaderboard();
-  }, []);
+  }, [user?.karma]); // Refresh leaderboard when user's karma changes
 
   if (isLoading) {
     return (
