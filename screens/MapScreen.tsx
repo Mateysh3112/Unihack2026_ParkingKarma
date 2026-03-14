@@ -19,29 +19,6 @@ const MELBOURNE = {
   longitudeDelta: 0.01,
 };
 
-//TO BE UPDATED:
-const retroMapStyle = [
-  { elementType: "geometry", stylers: [{ color: "#0a0a1a" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#00ffff" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#0a0a1a" }] },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#ff00ff" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#ff66ff" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#220033" }],
-  },
-  { featureType: "poi", stylers: [{ visibility: "off" }] },
-];
-
 export function MapScreen() {
   const [region, setRegion] = useState(MELBOURNE);
   const { spots, addSpot } = useAppStore();
@@ -105,11 +82,11 @@ export function MapScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={PROVIDER_DEFAULT}
+        provider={PROVIDER_GOOGLE}
         region={region}
         showsUserLocation
         showsMyLocationButton
-        customMapStyle={retroMapStyle}
+        customMapStyle={customMapStyle}
       >
         {spots.map((spot) => (
           <Marker
@@ -119,7 +96,7 @@ export function MapScreen() {
             description="Shared by a Parking Karma user"
             // pinColor={PD.accent}
           >
-            <View style={styles.neonMarker} />
+            <View style={styles.orangeMarker} />
           </Marker>
         ))}
       </MapView>
@@ -182,4 +159,58 @@ const styles = StyleSheet.create({
 
     elevation: 10,
   },
+  orangeMarker: {
+    width: 16,
+    height: 16,
+    borderRadius: 0,
+    backgroundColor: PD.accent,
+
+    borderWidth: 2,
+    borderColor: "#1a1a1a",
+
+    shadowOpacity: 0,
+    elevation: 0,
+  },
 });
+
+const customMapStyle = [
+  {
+    elementType: "geometry",
+    stylers: [{ color: "#f5f5f5" }],
+  },
+  {
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#ffffff" }],
+  },
+
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#ffffff" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#e0e0e0" }],
+  },
+
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#cde6f7" }],
+  },
+
+  {
+    featureType: "poi",
+    stylers: [{ visibility: "off" }], // hide points of interest
+  },
+
+  {
+    featureType: "transit",
+    stylers: [{ visibility: "off" }], // hide transit
+  },
+];
