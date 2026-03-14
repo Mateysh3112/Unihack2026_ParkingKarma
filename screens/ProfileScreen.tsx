@@ -1,11 +1,33 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useAppStore } from '../store/useAppStore';
-import { KarmaBadge } from '../components/KarmaBadge';
-import { PD, pdCard, pdTitle, pdLabel, pdMuted } from '../theme';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { useAppStore } from "../store/useAppStore";
+import { KarmaBadge } from "../components/KarmaBadge";
+import { PD, pdCard, pdTitle, pdLabel, pdMuted } from "../theme";
 
 export function ProfileScreen() {
-  const { user, addKarma } = useAppStore();
+  const { user, addKarma, signOut } = useAppStore();
+
+  const handleSignOut = () => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Sign Out", style: "destructive", onPress: signOut },
+    ]);
+  };
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>User not found</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -29,9 +51,24 @@ export function ProfileScreen() {
         <StatRow label="TOTAL KARMA" value={`${user.karma} PTS`} last />
       </View>
 
+      {/* Sign Out */}
+      <View style={styles.signOutShadow}>
+        <TouchableOpacity
+          style={styles.signOutBtn}
+          onPress={handleSignOut}
+          activeOpacity={0.75}
+        >
+          <Text style={styles.signOutText}>SIGN OUT</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Dev button */}
       <View style={styles.devShadow}>
-        <TouchableOpacity style={styles.devBtn} onPress={() => addKarma(50)} activeOpacity={0.75}>
+        <TouchableOpacity
+          style={styles.devBtn}
+          onPress={() => addKarma(50)}
+          activeOpacity={0.75}
+        >
           <Text style={styles.devText}>⚡ +50 KARMA (DEV)</Text>
         </TouchableOpacity>
       </View>
@@ -39,7 +76,15 @@ export function ProfileScreen() {
   );
 }
 
-function StatRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function StatRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
   return (
     <View style={[styles.statRow, !last && styles.statRowBorder]}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -54,7 +99,7 @@ const styles = StyleSheet.create({
 
   headerCard: {
     ...pdCard,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 14,
     paddingVertical: 28,
     marginBottom: 16,
@@ -70,14 +115,14 @@ const styles = StyleSheet.create({
     backgroundColor: PD.accent,
     borderWidth: 3,
     borderColor: PD.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     transform: [{ translateX: -4 }, { translateY: -4 }],
   },
   avatarText: {
     fontFamily: PD.fontMono,
     fontSize: 36,
-    fontWeight: '900',
+    fontWeight: "900",
     color: PD.white,
   },
   name: { ...pdTitle, fontSize: 20 },
@@ -92,16 +137,20 @@ const styles = StyleSheet.create({
     borderBottomColor: PD.border,
   },
 
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  statRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
   statRowBorder: { borderBottomWidth: 2, borderBottomColor: PD.border },
   statLabel: { ...pdMuted },
   statValue: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 13,
     color: PD.ink,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
 
   devShadow: {
@@ -113,15 +162,43 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: PD.border,
     padding: 14,
-    alignItems: 'center',
+    alignItems: "center",
     transform: [{ translateX: -3 }, { translateY: -3 }],
   },
   devText: {
     fontFamily: PD.fontMono,
     color: PD.inkLight,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 2,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
+  },
+
+  signOutShadow: {
+    backgroundColor: PD.border,
+    transform: [{ translateX: 3 }, { translateY: 3 }],
+    marginBottom: 16,
+  },
+  signOutBtn: {
+    backgroundColor: PD.bg,
+    borderWidth: 2,
+    borderColor: PD.border,
+    padding: 14,
+    alignItems: "center",
+    transform: [{ translateX: -3 }, { translateY: -3 }],
+  },
+  signOutText: {
+    fontFamily: PD.fontMono,
+    color: "#F44336", // Red color for sign out
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+  },
+
+  errorText: {
+    ...pdTitle,
+    textAlign: "center",
+    marginTop: 50,
   },
 });

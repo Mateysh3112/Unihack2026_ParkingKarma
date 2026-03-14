@@ -1,15 +1,23 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { useAppStore } from '../store/useAppStore';
-import { useKarma } from '../hooks/useKarma';
-import { KarmaBadge } from '../components/KarmaBadge';
-import { KARMA_TIERS } from '../services/karma';
-import { PD, pdCard, pdTitle, pdLabel, pdMuted } from '../theme';
+import React from "react";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { useAppStore } from "../store/useAppStore";
+import { useKarma } from "../hooks/useKarma";
+import { KarmaBadge } from "../components/KarmaBadge";
+import { KARMA_TIERS } from "../services/karma";
+import { PD, pdCard, pdTitle, pdLabel, pdMuted } from "../theme";
 
 export function KarmaScreen() {
   const { user } = useAppStore();
   const { tierInfo, nextTier, progressToNextTier } = useKarma();
   const progressPercent = Math.round(progressToNextTier * 100);
+
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>User not found</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
@@ -22,14 +30,22 @@ export function KarmaScreen() {
       {/* Progress card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>
-          PROGRESS → {nextTier?.tier?.toUpperCase() ?? 'MAX TIER'}
+          PROGRESS → {nextTier?.tier?.toUpperCase() ?? "MAX TIER"}
         </Text>
         {/* Pixel progress bar — outer track */}
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: tierInfo.color }]} />
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${progressPercent}%`, backgroundColor: tierInfo.color },
+            ]}
+          />
           {/* Dashed overlay grid lines for pixel feel */}
           {Array.from({ length: 9 }).map((_, i) => (
-            <View key={i} style={[styles.progressTick, { left: `${(i + 1) * 10}%` as any }]} />
+            <View
+              key={i}
+              style={[styles.progressTick, { left: `${(i + 1) * 10}%` as any }]}
+            />
           ))}
         </View>
         <Text style={styles.progressLabel}>{progressPercent}%</Text>
@@ -56,7 +72,9 @@ export function KarmaScreen() {
             ]}
           >
             <Text style={styles.tierEmoji}>{t.emoji}</Text>
-            <Text style={[styles.tierName, { color: t.color }]}>{t.tier.toUpperCase()}</Text>
+            <Text style={[styles.tierName, { color: t.color }]}>
+              {t.tier.toUpperCase()}
+            </Text>
             <Text style={styles.tierMin}>{t.min}+ PTS</Text>
             {user.tier === t.tier && (
               <View style={styles.youTag}>
@@ -70,7 +88,15 @@ export function KarmaScreen() {
   );
 }
 
-function StatRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function StatRow({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
   return (
     <View style={[styles.statRow, !last && styles.statRowBorder]}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -83,7 +109,7 @@ const styles = StyleSheet.create({
   scroll: { backgroundColor: PD.bg },
   container: { padding: 16, paddingBottom: 48 },
   title: { ...pdTitle, marginBottom: 20 },
-  badgeWrap: { alignItems: 'flex-start', marginBottom: 20 },
+  badgeWrap: { alignItems: "flex-start", marginBottom: 20 },
 
   card: { ...pdCard, marginBottom: 16 },
   cardTitle: {
@@ -100,35 +126,39 @@ const styles = StyleSheet.create({
     backgroundColor: PD.bg,
     borderWidth: 2,
     borderColor: PD.border,
-    overflow: 'hidden',
-    position: 'relative',
+    overflow: "hidden",
+    position: "relative",
   },
-  progressFill: { height: '100%' },
+  progressFill: { height: "100%" },
   progressTick: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     bottom: 0,
     width: 1,
     backgroundColor: PD.border,
     opacity: 0.2,
   },
-  progressLabel: { ...pdMuted, textAlign: 'right', marginTop: 6 },
+  progressLabel: { ...pdMuted, textAlign: "right", marginTop: 6 },
 
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  statRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+  },
   statRowBorder: { borderBottomWidth: 2, borderBottomColor: PD.border },
   statLabel: { ...pdMuted },
   statValue: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 13,
     color: PD.ink,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
 
   tierRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 8,
     gap: 10,
@@ -137,7 +167,7 @@ const styles = StyleSheet.create({
   tierEmoji: { fontSize: 20, width: 28 },
   tierName: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 13,
     flex: 1,
     letterSpacing: 1,
@@ -154,7 +184,13 @@ const styles = StyleSheet.create({
     fontFamily: PD.fontMono,
     color: PD.white,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: 1,
+  },
+
+  errorText: {
+    ...pdTitle,
+    textAlign: "center",
+    marginTop: 50,
   },
 });

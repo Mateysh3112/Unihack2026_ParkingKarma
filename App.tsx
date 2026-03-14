@@ -4,18 +4,19 @@ import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { TabNavigator } from "./navigation/TabNavigator";
+import { AuthScreen } from "./screens/AuthScreen";
 import { usePermissions } from "./hooks/usePermissions";
-import { signInUser } from "./services/firebase";
+import { useAppStore } from "./store/useAppStore";
 import { sampleBarometer } from "./services/barometer";
 import { useVerificationStore } from "./store/useVerificationStore";
 
 export default function App() {
+  const { isAuthenticated, isLoading, initializeAuth } = useAppStore();
   usePermissions(); // request location + sensor permissions on mount
 
   useEffect(() => {
-    signInUser().then((user) => {
-      console.log("Firebase connected! User ID:", user?.uid);
-    });
+    // Initialize Firebase Auth
+    initializeAuth();
 
     // Capture barometer baseline at ground level on app launch.
     // This is the reference pressure used to compute relative altitude later.
@@ -46,11 +47,20 @@ export default function App() {
     };
   }, []);
 
+  if (isLoading) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <AuthScreen />
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
+      <StatusBar style="dark" />
       <NavigationContainer>
-        <StatusBar style="dark" backgroundColor="#F2ECD8" />
-        <TabNavigator />
+        {isAuthenticated ? <TabNavigator /> : <AuthScreen />}
       </NavigationContainer>
     </SafeAreaProvider>
   );
