@@ -173,61 +173,53 @@ const styles = StyleSheet.create({
   },
 });
 
-// EXTREME RETRO — aged paper + pure black ink, Game Boy contrast, zero colour
+// Playdate-inspired map style — newsprint cream base, near-black ink roads
 const customMapStyle = [
-  // ── Base: everything starts as aged paper ─────────────────────────────────
-  { elementType: "geometry",           stylers: [{ color: "#E8DFC0" }] },
-  { elementType: "geometry.stroke",    stylers: [{ color: "#0A0805" }] },
+  // ── Base geometry ──────────────────────────────────────────────────────────
+  { elementType: "geometry",            stylers: [{ color: "#F2ECD8" }] }, // PD.bg newsprint
+  { elementType: "labels.text.fill",    stylers: [{ color: "#1A1714" }] }, // PD.ink
+  { elementType: "labels.text.stroke",  stylers: [{ color: "#F2ECD8" }, { weight: 3 }] },
+  { elementType: "labels.icon",         stylers: [{ visibility: "on" }, { saturation: -100 }] },
 
-  // ── Labels: bold ink on paper, no icons ───────────────────────────────────
-  { elementType: "labels.icon",        stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill",   stylers: [{ color: "#0A0805" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#E8DFC0" }, { weight: 4 }] },
+  // ── Landscape ──────────────────────────────────────────────────────────────
+  { featureType: "landscape",           elementType: "geometry",        stylers: [{ color: "#EDE6CE" }] },
+  { featureType: "landscape.man_made",  elementType: "geometry",        stylers: [{ color: "#E5DEC4" }] },
 
-  // ── Landscape: darker parchment to separate from roads ────────────────────
-  { featureType: "landscape",          elementType: "geometry", stylers: [{ color: "#DDD4B0" }] },
-  { featureType: "landscape.natural",  elementType: "geometry", stylers: [{ color: "#D0C89A" }] },
+  // ── Parks / green areas ────────────────────────────────────────────────────
+  { featureType: "poi.park",            elementType: "geometry",        stylers: [{ color: "#D8D0B4" }] },
+  { featureType: "poi.park",            elementType: "labels.text.fill",stylers: [{ color: "#5C554A" }] },
 
-  // ── Parks: hatched dark tone (simulated via darker fill) ──────────────────
-  { featureType: "poi.park",           elementType: "geometry",          stylers: [{ color: "#B8B090" }] },
-  { featureType: "poi.park",           elementType: "geometry.stroke",   stylers: [{ color: "#0A0805" }, { weight: 1 }] },
-  { featureType: "poi.park",           elementType: "labels.text.fill",  stylers: [{ color: "#0A0805" }] },
+  // ── All other POI — hidden to reduce clutter ───────────────────────────────
+  { featureType: "poi",                 stylers: [{ visibility: "off" }] },
+  { featureType: "poi.park",            stylers: [{ visibility: "on" }] },
 
-  // ── All POI off except parks ───────────────────────────────────────────────
-  { featureType: "poi",                stylers: [{ visibility: "off" }] },
-  { featureType: "poi.park",           stylers: [{ visibility: "on" }] },
+  // ── Roads ──────────────────────────────────────────────────────────────────
+  { featureType: "road",                elementType: "geometry",        stylers: [{ color: "#1A1714" }] },
+  { featureType: "road",                elementType: "geometry.stroke", stylers: [{ color: "#1A1714" }, { weight: 0.5 }] },
+  { featureType: "road",                elementType: "labels.text.fill",stylers: [{ color: "#F2ECD8" }] },
+  { featureType: "road",                elementType: "labels.text.stroke",stylers:[{ color: "#1A1714" }, { weight: 2 }] },
 
-  // ── Local roads: thin scratchy lines ──────────────────────────────────────
-  { featureType: "road.local",         elementType: "geometry",          stylers: [{ color: "#E8DFC0" }] },
-  { featureType: "road.local",         elementType: "geometry.stroke",   stylers: [{ color: "#0A0805" }, { weight: 2 }] },
-  { featureType: "road.local",         elementType: "labels",            stylers: [{ visibility: "off" }] },
+  // Arterial roads — slightly thinner weight
+  { featureType: "road.arterial",       elementType: "geometry",        stylers: [{ color: "#3A342E" }] },
 
-  // ── Arterial roads: solid medium ink lines ────────────────────────────────
-  { featureType: "road.arterial",      elementType: "geometry",          stylers: [{ color: "#0A0805" }] },
-  { featureType: "road.arterial",      elementType: "geometry.stroke",   stylers: [{ color: "#E8DFC0" }, { weight: 1 }] },
-  { featureType: "road.arterial",      elementType: "labels.text.fill",  stylers: [{ color: "#E8DFC0" }] },
-  { featureType: "road.arterial",      elementType: "labels.text.stroke",stylers: [{ color: "#0A0805" }, { weight: 3 }] },
+  // Local roads — lightest
+  { featureType: "road.local",          elementType: "geometry",        stylers: [{ color: "#5C554A" }] },
+  { featureType: "road.local",          elementType: "labels.text.fill",  stylers: [{ color: "#5C554A" }] },
+  { featureType: "road.local",          elementType: "labels.text.stroke",stylers: [{ color: "#F2ECD8" }, { weight: 2 }] },
 
-  // ── Highways: thick double-line — bold cartographic style ─────────────────
-  { featureType: "road.highway",       elementType: "geometry",          stylers: [{ color: "#0A0805" }] },
-  { featureType: "road.highway",       elementType: "geometry.stroke",   stylers: [{ color: "#E8DFC0" }, { weight: 2.5 }] },
-  { featureType: "road.highway",       elementType: "labels.text.fill",  stylers: [{ color: "#E8DFC0" }] },
-  { featureType: "road.highway",       elementType: "labels.text.stroke",stylers: [{ color: "#0A0805" }, { weight: 4 }] },
-  { featureType: "road.highway.controlled_access", elementType: "geometry", stylers: [{ color: "#0A0805" }] },
+  // Highways — bold ink lines
+  { featureType: "road.highway",        elementType: "geometry",        stylers: [{ color: "#1A1714" }, { weight: 2 }] },
+  { featureType: "road.highway",        elementType: "geometry.stroke", stylers: [{ color: "#F2ECD8" }, { weight: 1 }] },
+  { featureType: "road.highway",        elementType: "labels.text.fill",stylers: [{ color: "#F2ECD8" }] },
 
-  // ── Transit: all off ──────────────────────────────────────────────────────
-  { featureType: "transit",            stylers: [{ visibility: "off" }] },
+  // ── Transit — hidden ───────────────────────────────────────────────────────
+  { featureType: "transit",             stylers: [{ visibility: "off" }] },
 
-  // ── Water: dark slate — like old ink-wash maps ────────────────────────────
-  { featureType: "water",              elementType: "geometry",          stylers: [{ color: "#6E7E7A" }] },
-  { featureType: "water",              elementType: "geometry.stroke",   stylers: [{ color: "#0A0805" }, { weight: 2 }] },
-  { featureType: "water",              elementType: "labels.text.fill",  stylers: [{ color: "#E8DFC0" }] },
-  { featureType: "water",              elementType: "labels.text.stroke",stylers: [{ color: "#0A0805" }] },
+  // ── Water ─────────────────────────────────────────────────────────────────
+  { featureType: "water",               elementType: "geometry",        stylers: [{ color: "#C4BAA0" }] },
+  { featureType: "water",               elementType: "labels.text.fill",stylers: [{ color: "#5C554A" }] },
 
-  // ── Administrative: heavy border lines like old atlas pages ───────────────
-  { featureType: "administrative",                elementType: "geometry.stroke",   stylers: [{ color: "#0A0805" }, { weight: 2 }] },
-  { featureType: "administrative.country",        elementType: "geometry.stroke",   stylers: [{ color: "#0A0805" }, { weight: 3 }] },
-  { featureType: "administrative.locality",       elementType: "labels.text.fill",  stylers: [{ color: "#0A0805" }] },
-  { featureType: "administrative.locality",       elementType: "labels.text.stroke",stylers: [{ color: "#E8DFC0" }, { weight: 4 }] },
-  { featureType: "administrative.neighborhood",   elementType: "labels",            stylers: [{ visibility: "off" }] },
+  // ── Administrative borders ─────────────────────────────────────────────────
+  { featureType: "administrative",      elementType: "geometry.stroke", stylers: [{ color: "#1A1714" }, { weight: 1.5 }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#1A1714" }] },
 ];
