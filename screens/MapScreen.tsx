@@ -1,18 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { FABButton } from '../components/FABButton';
-import { FloorSelectionSheet } from './FloorSelectionSheet';
-import { LeavingVerificationScreen } from './LeavingVerificationScreen';
-import { SpotClaimScreen } from './SpotClaimScreen';
-import { useAppStore } from '../store/useAppStore';
-import { useVerificationStore } from '../store/useVerificationStore';
-import { CarPark, FloorSelectionResult, FirestoreSpot } from '../types';
-import { sampleBarometer, computeAltitude, computeFloor, ELEVATED_THRESHOLD_METRES } from '../services/barometer';
-import { isInsideCarPark } from '../services/carParks';
-import { subscribeToBroadcastingSpots } from '../services/spots';
-import { haversineDistance } from '../services/movement';
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, View } from "react-native";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import * as Location from "expo-location";
+import { FABButton } from "../components/FABButton";
+import { FloorSelectionSheet } from "./FloorSelectionSheet";
+import { LeavingVerificationScreen } from "./LeavingVerificationScreen";
+import { SpotClaimScreen } from "./SpotClaimScreen";
+import { useAppStore } from "../store/useAppStore";
+import { useVerificationStore } from "../store/useVerificationStore";
+import { CarPark, FloorSelectionResult, FirestoreSpot } from "../types";
+import {
+  sampleBarometer,
+  computeAltitude,
+  computeFloor,
+  ELEVATED_THRESHOLD_METRES,
+} from "../services/barometer";
+import { isInsideCarPark } from "../services/carParks";
+import { subscribeToBroadcastingSpots } from "../services/spots";
+import { haversineDistance } from "../services/movement";
 
 const MELBOURNE = {
   latitude: -37.8136,
@@ -29,10 +34,17 @@ export function MapScreen() {
   const [detectedCarPark, setDetectedCarPark] = useState<CarPark | null>(null);
   const [detectedAltitude, setDetectedAltitude] = useState<number | null>(null);
   const [detectedFloor, setDetectedFloor] = useState<number | null>(null);
-  const [broadcastingSpots, setBroadcastingSpots] = useState<(FirestoreSpot & { id: string })[]>([]);
+  const [broadcastingSpots, setBroadcastingSpots] = useState<
+    (FirestoreSpot & { id: string })[]
+  >([]);
   const [claimScreenVisible, setClaimScreenVisible] = useState(false);
-  const [selectedSpot, setSelectedSpot] = useState<(FirestoreSpot & { id: string }) | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<
+    (FirestoreSpot & { id: string }) | null
+  >(null);
+  const [currentLocation, setCurrentLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const pendingLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -134,7 +146,10 @@ export function MapScreen() {
         isNewCarPark: false,
       });
     } catch {
-      Alert.alert('Location unavailable', 'Could not start departure verification.');
+      Alert.alert(
+        "Location unavailable",
+        "Could not start departure verification.",
+      );
     } finally {
       setDetecting(false);
     }
@@ -147,7 +162,10 @@ export function MapScreen() {
 
   const handleSpotPress = (spot: FirestoreSpot & { id: string }) => {
     if (!currentLocation) {
-      Alert.alert('Location required', 'Please enable location services to claim spots.');
+      Alert.alert(
+        "Location required",
+        "Please enable location services to claim spots.",
+      );
       return;
     }
 
@@ -155,11 +173,12 @@ export function MapScreen() {
       currentLocation.lat,
       currentLocation.lng,
       spot.location.lat,
-      spot.location.lng
+      spot.location.lng,
     );
 
-    if (distance > 1000) { // Only show spots within 1km
-      Alert.alert('Too far', 'This spot is too far away to claim.');
+    if (distance > 1000) {
+      // Only show spots within 1km
+      Alert.alert("Too far", "This spot is too far away to claim.");
       return;
     }
 
@@ -207,7 +226,10 @@ export function MapScreen() {
         {broadcastingSpots.map((spot) => (
           <Marker
             key={spot.id}
-            coordinate={{ latitude: spot.location.lat, longitude: spot.location.lng }}
+            coordinate={{
+              latitude: spot.location.lat,
+              longitude: spot.location.lng,
+            }}
             title="Free Spot"
             description="Tap to claim"
             pinColor="#34C759"
@@ -216,7 +238,10 @@ export function MapScreen() {
         ))}
       </MapView>
 
-      <FABButton onPress={handleLeaving} label={detecting ? 'CHECKING...' : "I'M LEAVING!"} />
+      <FABButton
+        onPress={handleLeaving}
+        label={detecting ? "CHECKING..." : "I'M LEAVING!"}
+      />
 
       <FloorSelectionSheet
         visible={floorSheetVisible}
@@ -240,21 +265,27 @@ export function MapScreen() {
 
       <SpotClaimScreen
         visible={claimScreenVisible}
-        spot={selectedSpot ? {
-          id: selectedSpot.id,
-          sharerId: selectedSpot.sharerId,
-          lat: selectedSpot.location.lat,
-          lng: selectedSpot.location.lng,
-          distance: currentLocation ? haversineDistance(
-            currentLocation.lat,
-            currentLocation.lng,
-            selectedSpot.location.lat,
-            selectedSpot.location.lng
-          ) : 0,
-          floor: selectedSpot.floor,
-          isMultiStorey: selectedSpot.isMultiStorey,
-          carParkName: selectedSpot.carParkName,
-        } : null}
+        spot={
+          selectedSpot
+            ? {
+                id: selectedSpot.id,
+                sharerId: selectedSpot.sharerId,
+                lat: selectedSpot.location.lat,
+                lng: selectedSpot.location.lng,
+                distance: currentLocation
+                  ? haversineDistance(
+                      currentLocation.lat,
+                      currentLocation.lng,
+                      selectedSpot.location.lat,
+                      selectedSpot.location.lng,
+                    )
+                  : 0,
+                floor: selectedSpot.floor,
+                isMultiStorey: selectedSpot.isMultiStorey,
+                carParkName: selectedSpot.carParkName,
+              }
+            : null
+        }
         onClaimed={handleClaimSuccess}
         onDismiss={handleClaimDismiss}
       />
