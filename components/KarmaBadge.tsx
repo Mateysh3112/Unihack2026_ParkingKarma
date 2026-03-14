@@ -1,32 +1,44 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { KarmaTier } from '../types';
-import { getTierInfo } from '../services/karma';
-import { PD } from '../theme';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { KarmaTier } from "../types";
+import { getTierInfo } from "../services/karma";
+import { PD } from "../theme";
 
 interface KarmaBadgeProps {
   tier: KarmaTier;
   karma: number;
-  size?: 'small' | 'large';
+  size?: "small" | "large";
 }
 
-export function KarmaBadge({ tier, karma, size = 'small' }: KarmaBadgeProps) {
+export function KarmaBadge({ tier, karma, size = "small" }: KarmaBadgeProps) {
   const info = getTierInfo(tier);
-  const large = size === 'large';
+  const large = size === "large";
 
   return (
     // Pixel-art drop shadow
     <View style={[styles.shadowLayer, large && styles.shadowLayerLarge]}>
-      <View style={[
-        styles.badge,
-        { borderColor: info.color },
-        large && styles.badgeLarge,
-      ]}>
-        <Text style={[styles.emoji, large && styles.emojiLarge]}>{info.emoji}</Text>
-        <Text style={[styles.tier, { color: info.color }, large && styles.tierLarge]}>
+      <View
+        style={[
+          styles.badge,
+          { borderColor: info.color },
+          large && styles.badgeLarge,
+        ]}
+      >
+        <Text style={[styles.emoji, large && styles.emojiLarge]}>
+          {info.emoji}
+        </Text>
+        <Text
+          style={[
+            styles.tier,
+            { color: info.color },
+            large && styles.tierLarge,
+          ]}
+        >
           {tier}
         </Text>
-        <Text style={[styles.karma, large && styles.karmaLarge]}>{karma} PTS</Text>
+        <Text style={[styles.karma, large && styles.karmaLarge]}>
+          {karma} PTS
+        </Text>
       </View>
     </View>
   );
@@ -43,8 +55,8 @@ const styles = StyleSheet.create({
     transform: [{ translateX: 4 }, { translateY: 4 }],
   },
   badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: PD.surface,
     borderWidth: 2,
     paddingHorizontal: 10,
@@ -62,10 +74,10 @@ const styles = StyleSheet.create({
   emojiLarge: { fontSize: 26 },
   tier: {
     fontFamily: PD.fontMono,
-    fontWeight: '900',
+    fontWeight: "900",
     fontSize: 12,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   tierLarge: { fontSize: 18 },
   karma: {
