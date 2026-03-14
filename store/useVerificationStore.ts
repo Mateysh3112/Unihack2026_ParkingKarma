@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import * as Location from 'expo-location';
-import { Accelerometer } from 'expo-sensors';
+import { create } from "zustand";
+import * as Location from "expo-location";
+import { Accelerometer } from "expo-sensors";
 import {
   SPEED_GATES,
   SPEED_THRESHOLD_KMH,
@@ -17,15 +17,19 @@ import {
   analyzeAccelerometerPattern,
   rollingAverage,
   haversineDistance,
-} from '../services/movement';
-import { checkCooldownFraud, recordFailedVerification } from '../services/anticheat';
-import { createFirestoreSpot, updateSpotStatus } from '../services/spots';
+  DISABLE_MOVEMENT_CHECKING,
+} from "../services/movement";
+import {
+  checkCooldownFraud,
+  recordFailedVerification,
+} from "../services/anticheat";
+import { createFirestoreSpot, updateSpotStatus } from "../services/spots";
 import {
   AccelerometerReading,
   ClaimStatus,
   FloorSelectionResult,
   VerificationStatus,
-} from '../types';
+} from "../types";
 
 let locationSub: Location.LocationSubscription | null = null;
 let accelSub: { remove: () => void } | null = null;
@@ -119,31 +123,35 @@ interface VerificationStore {
   _setSpoofing: (detected: boolean) => void;
   _setAccelPattern: (pattern: string) => void;
   _setConfirmationProgress: (p: number) => void;
-  _setDebugInfo: (rawMs: number | null, accuracy: number | null, count: number) => void;
+  _setDebugInfo: (
+    rawMs: number | null,
+    accuracy: number | null,
+    count: number,
+  ) => void;
   setBaselinePressure: (hpa: number) => void;
   setCurrentAltitude: (m: number | null) => void;
 }
 
 export const useVerificationStore = create<VerificationStore>((set, get) => ({
-  verificationStatus: 'idle',
+  verificationStatus: "idle",
   currentSpeed: 0,
   isMovingAway: false,
   strikeCount: 0,
   isFrozen: false,
   pendingKarma: 15,
-  statusMessage: '',
+  statusMessage: "",
   passiveMessage: PASSIVE_AGGRESSIVE_MESSAGES[0],
   spotId: null,
   spotLocation: null,
   claimStatus: null,
   timeRemaining: 180,
   spoofingDetected: false,
-  accelPattern: '',
+  accelPattern: "",
   confirmationProgress: 0,
   debugRawSpeedMs: null,
   debugGpsAccuracy: null,
   debugGpsReadingCount: 0,
-  debugLocationPermission: 'unknown',
+  debugLocationPermission: "unknown",
   isMultiStorey: false,
   detectedFloor: null,
   confirmedFloor: null,
@@ -153,7 +161,8 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
   currentAltitude: null,
 
   _setTimeRemaining: (s) => set({ timeRemaining: s }),
-  _setSpeed: (kmh, movingAway) => set({ currentSpeed: kmh, isMovingAway: movingAway }),
+  _setSpeed: (kmh, movingAway) =>
+    set({ currentSpeed: kmh, isMovingAway: movingAway }),
   _setPassiveMessage: (msg) => set({ passiveMessage: msg }),
   _setSpoofing: (detected) => set({ spoofingDetected: detected }),
   _setAccelPattern: (pattern) => set({ accelPattern: pattern }),
@@ -170,17 +179,20 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
   startVerification: async (userId, lat, lng, floorData) => {
     if (get().isFrozen) {
       set({
-        verificationStatus: 'cancelled',
-        statusMessage: 'Your karma is frozen. Verification is disabled for now.',
+        verificationStatus: "cancelled",
+        statusMessage:
+          "Your karma is frozen. Verification is disabled for now.",
       });
       return;
     }
 
-    const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
-    if (locStatus !== 'granted') {
+    const { status: locStatus } =
+      await Location.requestForegroundPermissionsAsync();
+    if (locStatus !== "granted") {
       set({
-        verificationStatus: 'cancelled',
-        statusMessage: 'Location permission denied. Please grant location access in Settings.',
+        verificationStatus: "cancelled",
+        statusMessage:
+          "Location permission denied. Please grant location access in Settings.",
         debugLocationPermission: locStatus,
       });
       return;
@@ -188,15 +200,16 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
     if (checkCooldownFraud(userId, lat, lng)) {
       set({
-        verificationStatus: 'cancelled',
-        statusMessage: 'Repeated tags at the same spot were blocked for anti-cheat.',
+        verificationStatus: "cancelled",
+        statusMessage:
+          "Repeated tags at the same spot were blocked for anti-cheat.",
       });
       return;
     }
 
     resetInternals();
     set({
-      verificationStatus: 'monitoring',
+      verificationStatus: "monitoring",
       spotLocation: { lat, lng },
       spotId: null,
       currentSpeed: 0,
@@ -204,9 +217,9 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       claimStatus: null,
       timeRemaining: 180,
       spoofingDetected: false,
-      accelPattern: '',
+      accelPattern: "",
       confirmationProgress: 0,
-      statusMessage: 'Monitoring your departure...',
+      statusMessage: "Monitoring your departure...",
       passiveMessage: PASSIVE_AGGRESSIVE_MESSAGES[0],
       debugLocationPermission: locStatus,
       isMultiStorey: floorData?.isMultiStorey ?? false,
@@ -222,8 +235,8 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
     const monitorStart = Date.now();
     monitoringTimer = setTimeout(() => {
-      if (get().verificationStatus !== 'broadcasted') {
-        get().cancelVerification('timeout');
+      if (get().verificationStatus !== "broadcasted") {
+        get().cancelVerification("timeout");
       }
     }, TIMEOUTS.MAX_MONITORING_MS);
 
@@ -235,7 +248,9 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       if (elapsed > 0 && elapsed % 30 === 0) {
         passiveMessageIndex =
           (passiveMessageIndex + 1) % PASSIVE_AGGRESSIVE_MESSAGES.length;
-        get()._setPassiveMessage(PASSIVE_AGGRESSIVE_MESSAGES[passiveMessageIndex]);
+        get()._setPassiveMessage(
+          PASSIVE_AGGRESSIVE_MESSAGES[passiveMessageIndex],
+        );
       }
     }, 1000);
 
@@ -261,10 +276,10 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
           const { spotLocation } = state;
           if (!spotLocation) return;
           if (
-            state.verificationStatus !== 'monitoring' &&
-            state.verificationStatus !== 'suspicious' &&
-            state.verificationStatus !== 'verified' &&
-            state.verificationStatus !== 'broadcasted'
+            state.verificationStatus !== "monitoring" &&
+            state.verificationStatus !== "suspicious" &&
+            state.verificationStatus !== "verified" &&
+            state.verificationStatus !== "broadcasted"
           ) {
             return;
           }
@@ -288,9 +303,21 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
             );
             if (spoofed) {
               get()._setSpoofing(true);
-              get().cancelVerification('spoof');
+              get().cancelVerification("spoof");
               return;
             }
+          }
+
+          // Temporary: disable movement checking for testing
+          if (DISABLE_MOVEMENT_CHECKING) {
+            set({
+              verificationStatus: "verified",
+              statusMessage:
+                "Movement checking disabled for testing. Broadcasting spot...",
+              confirmationProgress: 1,
+            });
+            get().setBroadcasting();
+            return;
           }
 
           const rawSpeedMs = loc.coords.speed;
@@ -327,7 +354,7 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
           const accelAnalysis =
             accelReadings.length >= 5
               ? analyzeAccelerometerPattern(accelReadings)
-              : { likelyCar: true, reason: 'collecting accelerometer data' };
+              : { likelyCar: true, reason: "collecting accelerometer data" };
 
           get()._setSpeed(averagedSpeed, movingAway);
           get()._setAccelPattern(accelAnalysis.reason);
@@ -335,19 +362,26 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
           const now = Date.now();
 
-          if (state.verificationStatus === 'broadcasted' && state.claimStatus === 'waiting') {
+          if (
+            state.verificationStatus === "broadcasted" &&
+            state.claimStatus === "waiting"
+          ) {
             if (averagedSpeed < WALKING_SPEED_KMH && !reconfirmTimer) {
-              set({ statusMessage: 'You slowed down. Keep leaving the area.' });
+              set({ statusMessage: "You slowed down. Keep leaving the area." });
               reconfirmTimer = setTimeout(() => {
                 reconfirmTimer = null;
-                if (get().verificationStatus === 'broadcasted') {
-                  set({ statusMessage: 'Waiting for someone to claim your spot...' });
+                if (get().verificationStatus === "broadcasted") {
+                  set({
+                    statusMessage: "Waiting for someone to claim your spot...",
+                  });
                 }
               }, RECONFIRM_PAUSE_MS);
             } else if (averagedSpeed >= WALKING_SPEED_KMH && reconfirmTimer) {
               clearTimeout(reconfirmTimer);
               reconfirmTimer = null;
-              set({ statusMessage: 'Waiting for someone to claim your spot...' });
+              set({
+                statusMessage: "Waiting for someone to claim your spot...",
+              });
             }
             return;
           }
@@ -356,34 +390,42 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
             if (stationaryStart === null) stationaryStart = now;
             const stationaryFor = stationaryStart ? now - stationaryStart : 0;
             set({
-              verificationStatus: 'monitoring',
-              statusMessage: 'Still stationary or walking. Start driving away to share.',
+              verificationStatus: "monitoring",
+              statusMessage:
+                "Still stationary or walking. Start driving away to share.",
               confirmationProgress: 0,
             });
             suspiciousStart = null;
 
             if (stationaryFor >= STATIONARY_CANCEL_MS) {
-              get().cancelVerification('no_movement');
+              get().cancelVerification("no_movement");
             }
             return;
           }
 
           stationaryStart = null;
 
-          if (averagedSpeed >= WALKING_SPEED_KMH && averagedSpeed < SPEED_THRESHOLD_KMH) {
+          if (
+            averagedSpeed >= WALKING_SPEED_KMH &&
+            averagedSpeed < SPEED_THRESHOLD_KMH
+          ) {
             if (suspiciousStart === null) suspiciousStart = now;
             const elapsed = now - suspiciousStart;
             set({
-              verificationStatus: 'suspicious',
+              verificationStatus: "suspicious",
               statusMessage: `Suspicious movement detected. Reach ${SPEED_THRESHOLD_KMH} km/h within ${Math.max(0, Math.ceil((CONFIRMATION_DURATION_MS - elapsed) / 1000))}s.`,
-              confirmationProgress: Math.min(elapsed / CONFIRMATION_DURATION_MS, 1),
+              confirmationProgress: Math.min(
+                elapsed / CONFIRMATION_DURATION_MS,
+                1,
+              ),
             });
 
             if (elapsed >= CONFIRMATION_DURATION_MS) {
               suspiciousStart = null;
               set({
-                verificationStatus: 'monitoring',
-                statusMessage: 'Still too slow. Keep driving away from the spot.',
+                verificationStatus: "monitoring",
+                statusMessage:
+                  "Still too slow. Keep driving away from the spot.",
                 confirmationProgress: 0,
               });
             }
@@ -392,10 +434,14 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
           suspiciousStart = null;
 
-          if (!movingAway || distanceFromSpot < SPEED_GATES.CLAIM_RADIUS_M + 30) {
+          if (
+            !movingAway ||
+            distanceFromSpot < SPEED_GATES.CLAIM_RADIUS_M + 30
+          ) {
             set({
-              verificationStatus: 'monitoring',
-              statusMessage: 'Drive farther away from the tagged spot before it is shared.',
+              verificationStatus: "monitoring",
+              statusMessage:
+                "Drive farther away from the tagged spot before it is shared.",
               confirmationProgress: 0,
             });
             return;
@@ -403,23 +449,25 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
           if (!accelAnalysis.likelyCar) {
             set({
-              verificationStatus: 'suspicious',
-              statusMessage: 'Walking-like motion detected. Keep driving to verify the share.',
+              verificationStatus: "suspicious",
+              statusMessage:
+                "Walking-like motion detected. Keep driving to verify the share.",
               confirmationProgress: 0,
             });
             return;
           }
 
           set({
-            verificationStatus: 'verified',
-            statusMessage: 'Vehicle movement verified. Broadcasting your spot...',
+            verificationStatus: "verified",
+            statusMessage:
+              "Vehicle movement verified. Broadcasting your spot...",
             confirmationProgress: 1,
           });
 
           if (!broadcastTimer) {
             broadcastTimer = setTimeout(() => {
               broadcastTimer = null;
-              if (get().verificationStatus === 'verified') {
+              if (get().verificationStatus === "verified") {
                 get().setBroadcasting();
               }
             }, 300);
@@ -430,64 +478,67 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       clearTimers();
       clearSubscriptions();
       set({
-        verificationStatus: 'cancelled',
-        statusMessage: 'Location tracking failed. Please try again.',
+        verificationStatus: "cancelled",
+        statusMessage: "Location tracking failed. Please try again.",
       });
     }
   },
 
   setBroadcasting: () => {
-    if (get().verificationStatus !== 'verified') return;
+    if (get().verificationStatus !== "verified") return;
 
     clearTimers();
     accelSub?.remove();
     accelSub = null;
 
     set({
-      verificationStatus: 'broadcasted',
-      claimStatus: 'waiting',
-      statusMessage: 'Waiting for someone to claim your spot...',
+      verificationStatus: "broadcasted",
+      claimStatus: "waiting",
+      statusMessage: "Waiting for someone to claim your spot...",
       confirmationProgress: 1,
     });
 
     const { spotId } = get();
     if (spotId) {
-      updateSpotStatus(spotId, 'broadcasting').catch(() => {});
+      updateSpotStatus(spotId, "broadcasting").catch(() => {});
     }
 
     claimTimer = setTimeout(() => {
-      if (get().claimStatus === 'waiting') {
+      if (get().claimStatus === "waiting") {
         get().onSpotExpired();
       }
     }, TIMEOUTS.CLAIM_WINDOW_MS);
   },
 
-  cancelVerification: (reason = 'manual') => {
+  cancelVerification: (reason = "manual") => {
     resetInternals();
 
     const { spotId } = get();
     if (spotId) {
-      updateSpotStatus(spotId, 'expired').catch(() => {});
+      updateSpotStatus(spotId, "expired").catch(() => {});
     }
 
-    let verificationStatus: VerificationStatus = 'cancelled';
-    let statusMessage = 'Spot cancelled.';
+    let verificationStatus: VerificationStatus = "cancelled";
+    let statusMessage = "Spot cancelled.";
     let strikeCount = get().strikeCount;
     let isFrozen = get().isFrozen;
 
-    if (reason === 'timeout') {
-      statusMessage = 'Share cancelled. You did not reach 15 km/h within 3 minutes.';
-    } else if (reason === 'no_movement') {
-      statusMessage = 'Share cancelled. You stayed in the 0-5 km/h range too long.';
-    } else if (reason === 'spoof') {
-      verificationStatus = 'spoofed';
-      statusMessage = 'Probable GPS spoofing detected from an impossible speed jump.';
-    } else if (reason === 'app_backgrounded') {
-      statusMessage = 'Verification stopped when the app left the foreground.';
+    if (reason === "timeout") {
+      statusMessage =
+        "Share cancelled. You did not reach 15 km/h within 3 minutes.";
+    } else if (reason === "no_movement") {
+      statusMessage =
+        "Share cancelled. You stayed in the 0-5 km/h range too long.";
+    } else if (reason === "spoof") {
+      verificationStatus = "spoofed";
+      statusMessage =
+        "Probable GPS spoofing detected from an impossible speed jump.";
+    } else if (reason === "app_backgrounded") {
+      statusMessage = "Verification stopped when the app left the foreground.";
     }
 
-    if (reason !== 'manual') {
-      const failure = recordFailedVerification('local_user');
+    if (reason !== "manual") {
+      const failure = recordFailedVerification("local_user");
       strikeCount = failure.strikeCount;
       isFrozen = failure.frozen;
     }
@@ -507,48 +558,48 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       claimTimer = null;
     }
     set({
-      claimStatus: 'claimed',
-      statusMessage: 'Your spot was claimed. Pending karma is now awarded.',
+      claimStatus: "claimed",
+      statusMessage: "Your spot was claimed. Pending karma is now awarded.",
     });
   },
 
   onSpotExpired: () => {
     const { spotId } = get();
     if (spotId) {
-      updateSpotStatus(spotId, 'expired').catch(() => {});
+      updateSpotStatus(spotId, "expired").catch(() => {});
     }
     set({
-      claimStatus: 'expired',
-      statusMessage: 'No one claimed your spot before it expired.',
+      claimStatus: "expired",
+      statusMessage: "No one claimed your spot before it expired.",
     });
   },
 
   onSpotStolen: () => {
     set({
-      claimStatus: 'stolen',
-      statusMessage: 'Someone took the spot without claiming it.',
+      claimStatus: "stolen",
+      statusMessage: "Someone took the spot without claiming it.",
     });
   },
 
   resetVerification: () => {
     resetInternals();
     set({
-      verificationStatus: 'idle',
+      verificationStatus: "idle",
       currentSpeed: 0,
       isMovingAway: false,
       claimStatus: null,
-      statusMessage: '',
+      statusMessage: "",
       passiveMessage: PASSIVE_AGGRESSIVE_MESSAGES[0],
       spotId: null,
       spotLocation: null,
       timeRemaining: 180,
       spoofingDetected: false,
-      accelPattern: '',
+      accelPattern: "",
       confirmationProgress: 0,
       debugRawSpeedMs: null,
       debugGpsAccuracy: null,
       debugGpsReadingCount: 0,
-      debugLocationPermission: 'unknown',
+      debugLocationPermission: "unknown",
       isMultiStorey: false,
       detectedFloor: null,
       confirmedFloor: null,
