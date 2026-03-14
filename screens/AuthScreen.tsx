@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from "react-native";
 import {
   signInAnonymously,
@@ -87,8 +90,11 @@ export function AuthScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
+    <KeyboardAvoidingView style={styles.container} behavior="position">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.title}>PARKING KARMA</Text>
         <Text style={styles.subtitle}>Join the community</Text>
 
@@ -178,8 +184,8 @@ export function AuthScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -192,6 +198,8 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
+    justifyContent: "center",
+    flexGrow: 1,
   },
   title: {
     ...pdTitle,
