@@ -5,11 +5,13 @@ import { AccelerometerReading } from '../types';
 // ---------------------------------------------------------------------------
 export const SPEED_THRESHOLD_KMH = 15;       // must sustain above this to confirm
 export const WALKING_SPEED_KMH = 5;          // below this = "are you still leaving?"
-export const STATIONARY_SPEED_KMH = 2;       // below this counts toward cancel timer
-export const CONFIRMATION_DURATION_MS = 10_000; // ms sustained above threshold to broadcast
+export const STATIONARY_SPEED_KMH = 5;       // below this counts as stationary / walking
+export const CONFIRMATION_DURATION_MS = 20_000; // suspicious window duration
 export const STATIONARY_CANCEL_MS = 20_000;  // ms stationary before cancelling entirely
 export const RECONFIRM_PAUSE_MS = 15_000;    // ms to pause broadcast for re-confirmation
 export const ROLLING_BUFFER_SIZE = 5;        // number of GPS readings in rolling average
+export const MIN_MOVING_AWAY_DISTANCE_M = 50;
+export const MIN_DIRECTION_DELTA_M = 5;
 
 export const SPEED_GATES = {
   STATIONARY_MAX: 5,      // km/h — show "Are you still in the car?"
@@ -81,7 +83,7 @@ export function isMovingAwayFromSpot(
 ): boolean {
   const prevDist = haversineDistance(spotLat, spotLng, prevLat, prevLng);
   const currDist = haversineDistance(spotLat, spotLng, currLat, currLng);
-  return currDist > prevDist;
+  return currDist >= MIN_MOVING_AWAY_DISTANCE_M && currDist - prevDist >= MIN_DIRECTION_DELTA_M;
 }
 
 /** Detect GPS spoofing — speed between samples exceeds plausible vehicle speed */

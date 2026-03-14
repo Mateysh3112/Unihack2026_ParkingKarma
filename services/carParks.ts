@@ -24,6 +24,7 @@ export async function isInsideCarPark(
   userLat: number,
   userLng: number,
 ): Promise<CarPark | null> {
+  if (!db) return null;
   try {
     const snap = await getDocs(collection(db, 'carParks'));
     for (const docSnap of snap.docs) {
@@ -59,6 +60,10 @@ export async function createUnverifiedCarPark(
   lng: number,
   userId: string,
 ): Promise<string> {
+  if (!db) {
+    return `local_carpark_${Date.now()}`;
+  }
+
   // Convert metres to approximate lat/lng degrees
   const latDelta = BOUNDING_BOX_RADIUS_METRES / 111_320;
   const lngDelta = BOUNDING_BOX_RADIUS_METRES / (111_320 * Math.cos((lat * Math.PI) / 180));
@@ -98,6 +103,10 @@ export async function confirmCarParkSighting(
   userId: string,
   currentConfirmations: string[],
 ): Promise<{ justVerified: boolean }> {
+  if (!db) {
+    return { justVerified: false };
+  }
+
   // Don't double-count the same user
   if (currentConfirmations.includes(userId)) {
     return { justVerified: false };

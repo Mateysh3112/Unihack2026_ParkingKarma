@@ -15,6 +15,10 @@ export async function createFirestoreSpot(
   lng: number,
   floorData?: FloorSelectionResult,
 ): Promise<string> {
+  if (!db) {
+    return `local_${Date.now()}`;
+  }
+
   const ref = doc(collection(db, 'spots'));
   const spot: FirestoreSpot = {
     sharerId,
@@ -42,6 +46,7 @@ export async function updateSpotStatus(
   spotId: string,
   status: SpotStatus,
 ): Promise<void> {
+  if (!db) return;
   const update: Partial<FirestoreSpot> & Record<string, unknown> = { status };
   if (status === 'broadcasting') update.broadcastAt = Date.now();
   await updateDoc(doc(db, 'spots', spotId), update);
@@ -52,6 +57,7 @@ export async function claimFirestoreSpot(
   spotId: string,
   claimerId: string,
 ): Promise<void> {
+  if (!db) return;
   await updateDoc(doc(db, 'spots', spotId), {
     status: 'claimed',
     claimedBy: claimerId,
@@ -65,6 +71,7 @@ export async function markSpotStolen(
   spotId: string,
   thiefId: string,
 ): Promise<void> {
+  if (!db) return;
   await updateDoc(doc(db, 'spots', spotId), {
     status: 'stolen',
     claimedBy: thiefId,
@@ -76,6 +83,11 @@ export function subscribeToSpot(
   spotId: string,
   callback: (spot: FirestoreSpot | null) => void,
 ): () => void {
+  if (!db) {
+    callback(null);
+    return () => {};
+  }
+
   return onSnapshot(doc(db, 'spots', spotId), (snap) => {
     callback(snap.exists() ? (snap.data() as FirestoreSpot) : null);
   });
@@ -87,6 +99,7 @@ export async function recordSuspiciousTag(
   lat: number,
   lng: number,
 ): Promise<void> {
+  if (!db) return;
   await setDoc(
     doc(db, 'suspiciousActivity', userId),
     {

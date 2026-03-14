@@ -41,7 +41,14 @@ export type SpotStatus =
   | 'expired'
   | 'stolen';
 
-export type VerificationStatus = 'idle' | 'monitoring' | 'confirming' | 'confirmed' | 'cancelled';
+export type VerificationStatus =
+  | 'idle'
+  | 'monitoring'
+  | 'suspicious'
+  | 'verified'
+  | 'broadcasted'
+  | 'cancelled'
+  | 'spoofed';
 
 export type ClaimStatus = 'waiting' | 'claimed' | 'expired' | 'stolen' | null;
 

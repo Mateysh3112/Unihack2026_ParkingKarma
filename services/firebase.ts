@@ -11,15 +11,26 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+const hasFirebaseConfig = Object.values(firebaseConfig).every(
+  (value) => typeof value === 'string' && value.trim().length > 0,
+);
+
+const app = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
+export const db = app ? getFirestore(app) : null;
+export const auth = app ? getAuth(app) : null;
+export const isFirebaseConfigured = hasFirebaseConfig;
 
 export const signInUser = async () => {
+  if (!auth) {
+    console.warn('Firebase env vars are missing. Running without auth.');
+    return null;
+  }
+
   try {
     const userCredential = await signInAnonymously(auth);
     return userCredential.user;
   } catch (error) {
     console.error('Auth error:', error);
+    return null;
   }
 };

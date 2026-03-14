@@ -1,17 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
   Animated,
   Easing,
+  Modal,
   SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useVerificationStore } from '../store/useVerificationStore';
 import { useAppStore } from '../store/useAppStore';
-import { SPEED_GATES, SPEED_THRESHOLD_KMH, CONFIRMATION_DURATION_MS } from '../services/movement';
+import { SPEED_GATES, SPEED_THRESHOLD_KMH } from '../services/movement';
 import { KARMA_REWARDS } from '../services/karma';
 
 interface Props {
@@ -19,110 +19,6 @@ interface Props {
   onClose: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Animated dragon eye — pulses while monitoring
-// ---------------------------------------------------------------------------
-function DragonEye({ active }: { active: boolean }) {
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!active) {
-      pulse.setValue(1);
-      return;
-    }
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.3, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [active, pulse]);
-
-  return (
-    <Animated.Text style={[styles.dragonEmoji, { transform: [{ scale: pulse }] }]}>
-      🐉
-    </Animated.Text>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Speed gauge
-// ---------------------------------------------------------------------------
-function SpeedGauge({ speed }: { speed: number }) {
-  const gaugeWidth = useRef(new Animated.Value(0)).current;
-  const maxDisplaySpeed = 30; // km/h shown at 100%
-  const target = Math.min(speed / maxDisplaySpeed, 1);
-
-  useEffect(() => {
-    Animated.timing(gaugeWidth, {
-      toValue: target,
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
-  }, [target, gaugeWidth]);
-
-  const color =
-    speed < SPEED_GATES.STATIONARY_MAX
-      ? '#FF3B30'
-      : speed < SPEED_GATES.SUSPICIOUS_MAX
-      ? '#FF9500'
-      : '#34C759';
-
-  return (
-    <View style={styles.gaugeContainer}>
-      <View style={styles.gaugeTrack}>
-        <Animated.View
-          style={[
-            styles.gaugeFill,
-            {
-              width: gaugeWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-              backgroundColor: color,
-            },
-          ]}
-        />
-      </View>
-      <Text style={[styles.speedText, { color }]}>{speed.toFixed(1)} km/h</Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Confirmation progress bar — fills over 10 seconds of sustained speed
-// ---------------------------------------------------------------------------
-function ConfirmationBar({ progress }: { progress: number }) {
-  const barWidth = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(barWidth, {
-      toValue: progress,
-      duration: 400,
-      useNativeDriver: false,
-    }).start();
-  }, [progress, barWidth]);
-
-  return (
-    <View style={styles.confirmBarContainer}>
-      <Text style={styles.confirmBarLabel}>
-        Confirming departure… hold speed above {SPEED_THRESHOLD_KMH} km/h
-      </Text>
-      <View style={styles.confirmBarTrack}>
-        <Animated.View
-          style={[
-            styles.confirmBarFill,
-            { width: barWidth.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-          ]}
-        />
-      </View>
-      <Text style={styles.confirmBarPct}>{Math.round(progress * 100)}%</Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Debug panel — only rendered in __DEV__ builds
-// ---------------------------------------------------------------------------
 function DebugPanel() {
   const {
     debugRawSpeedMs,
@@ -133,55 +29,100 @@ function DebugPanel() {
     debugLocationPermission,
   } = useVerificationStore();
 
-  const rawKmh = debugRawSpeedMs !== null && debugRawSpeedMs >= 0
-    ? debugRawSpeedMs * 3.6
-    : 0;
+  const convertedSpeedKmh =
+    debugRawSpeedMs !== null && debugRawSpeedMs >= 0 ? debugRawSpeedMs * 3.6 : 0;
 
   return (
-    <View style={debugStyles.panel}>
-      <Text style={debugStyles.title}>🛰 GPS Debug</Text>
-      <Text style={debugStyles.row}>
-        Raw speed: {debugRawSpeedMs !== null ? `${debugRawSpeedMs.toFixed(3)} m/s` : 'null'}
+    <View style={styles.debugPanel}>
+      <Text style={styles.debugTitle}>GPS Debug</Text>
+      <Text style={styles.debugRow}>
+        Raw GPS speed: {debugRawSpeedMs !== null ? `${debugRawSpeedMs.toFixed(3)} m/s` : 'null'}
       </Text>
-      <Text style={debugStyles.row}>Converted: {rawKmh.toFixed(2)} km/h</Text>
-      <Text style={debugStyles.row}>Rolling avg: {currentSpeed.toFixed(2)} km/h</Text>
-      <Text style={debugStyles.row}>
-        Accuracy: {debugGpsAccuracy !== null ? `${debugGpsAccuracy.toFixed(1)} m` : 'n/a'}
+      <Text style={styles.debugRow}>Converted speed: {convertedSpeedKmh.toFixed(2)} km/h</Text>
+      <Text style={styles.debugRow}>Rolling average: {currentSpeed.toFixed(2)} km/h</Text>
+      <Text style={styles.debugRow}>
+        GPS accuracy: {debugGpsAccuracy !== null ? `${debugGpsAccuracy.toFixed(1)} m` : 'n/a'}
       </Text>
-      <Text style={debugStyles.row}>Readings: {debugGpsReadingCount}</Text>
-      <Text style={debugStyles.row}>State: {verificationStatus}</Text>
-      <Text style={debugStyles.row}>Permission: {debugLocationPermission}</Text>
+      <Text style={styles.debugRow}>GPS readings: {debugGpsReadingCount}</Text>
+      <Text style={styles.debugRow}>State: {verificationStatus}</Text>
+      <Text style={styles.debugRow}>Permission: {debugLocationPermission}</Text>
     </View>
   );
 }
 
-const debugStyles = StyleSheet.create({
-  panel: {
-    backgroundColor: '#1A1A2E',
-    borderWidth: 1,
-    borderColor: '#3A3A5C',
-    borderRadius: 8,
-    padding: 10,
-    width: '100%',
-    marginTop: 8,
-    gap: 2,
-  },
-  title: {
-    color: '#7B7BFF',
-    fontWeight: '700',
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  row: {
-    color: '#AAAADD',
-    fontSize: 11,
-    fontFamily: 'monospace',
-  },
-});
+function SpeedGauge({ speed }: { speed: number }) {
+  const width = useRef(new Animated.Value(0)).current;
+  const target = Math.min(speed / 30, 1);
 
-// ---------------------------------------------------------------------------
-// Phase: Monitoring / Confirming
-// ---------------------------------------------------------------------------
+  useEffect(() => {
+    Animated.timing(width, {
+      toValue: target,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [target, width]);
+
+  const color =
+    speed < SPEED_GATES.STATIONARY_MAX
+      ? '#FF3B30'
+      : speed < SPEED_GATES.SUSPICIOUS_MAX
+        ? '#FF9500'
+        : '#34C759';
+
+  return (
+    <View style={styles.gaugeContainer}>
+      <View style={styles.gaugeTrack}>
+        <Animated.View
+          style={[
+            styles.gaugeFill,
+            {
+              width: width.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+      <Text style={[styles.speedText, { color }]}>{speed.toFixed(1)} km/h</Text>
+    </View>
+  );
+}
+
+function ProgressBar({ progress }: { progress: number }) {
+  const width = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(width, {
+      toValue: progress,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [progress, width]);
+
+  return (
+    <View style={styles.progressWrap}>
+      <Text style={styles.progressLabel}>
+        Suspicious window active. Reach {SPEED_THRESHOLD_KMH} km/h.
+      </Text>
+      <View style={styles.progressTrack}>
+        <Animated.View
+          style={[
+            styles.progressFill,
+            {
+              width: width.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
 function MonitoringPhase({ onCancel }: { onCancel: () => void }) {
   const {
     currentSpeed,
@@ -193,50 +134,34 @@ function MonitoringPhase({ onCancel }: { onCancel: () => void }) {
     verificationStatus,
     confirmationProgress,
   } = useVerificationStore();
-
   const mins = Math.floor(timeRemaining / 60);
   const secs = timeRemaining % 60;
-  const countdownColor = timeRemaining < 30 ? '#FF3B30' : '#888';
-  const isConfirming = verificationStatus === 'confirming';
+  const isSuspicious =
+    verificationStatus === 'suspicious' || verificationStatus === 'verified';
 
   return (
     <View style={styles.phaseContainer}>
-      <DragonEye active />
-
+      <Text style={styles.hero}>CAR</Text>
       <Text style={styles.phaseTitle}>
-        {isConfirming ? 'Almost There...' : 'Movement Verification'}
+        {verificationStatus === 'verified' ? 'Verified' : 'Leaving Verification'}
       </Text>
       <Text style={styles.statusMsg}>{statusMessage}</Text>
-
       <SpeedGauge speed={currentSpeed} />
-
-      {isConfirming && <ConfirmationBar progress={confirmationProgress} />}
-
-      {currentSpeed >= SPEED_GATES.STATIONARY_MAX && (
-        <Text style={styles.directionText}>
-          {isMovingAway ? '✅ Moving away from spot' : '⚠️ Direction unclear'}
-        </Text>
-      )}
-
-      {accelPattern !== '' && (
-        <Text style={styles.accelText}>📡 {accelPattern}</Text>
-      )}
-
-      {!isConfirming && <Text style={styles.passiveMsg}>{passiveMessage}</Text>}
-
-      <Text style={[styles.countdown, { color: countdownColor }]}>
-        ⏱ {mins}:{secs.toString().padStart(2, '0')} remaining
+      {isSuspicious && <ProgressBar progress={confirmationProgress} />}
+      <Text style={styles.secondary}>
+        {isMovingAway ? 'Moving away from tagged spot' : 'Need distance away from tagged spot'}
       </Text>
-
-      {/* Speed gate legend */}
+      {accelPattern ? <Text style={styles.secondary}>{accelPattern}</Text> : null}
+      {!isSuspicious ? <Text style={styles.passiveMsg}>{passiveMessage}</Text> : null}
+      <Text style={styles.countdown}>
+        {mins}:{secs.toString().padStart(2, '0')} remaining
+      </Text>
       <View style={styles.legend}>
-        <LegendItem color="#FF3B30" label="0–2 km/h" desc="Stationary (auto-cancel)" />
-        <LegendItem color="#FF9500" label="2–15 km/h" desc="Too slow" />
-        <LegendItem color="#34C759" label="15+ km/h" desc="Confirming 🎉" />
+        <Text style={styles.legendText}>0-5 km/h: stationary or walking</Text>
+        <Text style={styles.legendText}>5-15 km/h: suspicious window</Text>
+        <Text style={styles.legendText}>15+ km/h: vehicle movement</Text>
       </View>
-
-      {__DEV__ && <DebugPanel />}
-
+      {__DEV__ ? <DebugPanel /> : null}
       <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </TouchableOpacity>
@@ -244,116 +169,65 @@ function MonitoringPhase({ onCancel }: { onCancel: () => void }) {
   );
 }
 
-function LegendItem({ color, label, desc }: { color: string; label: string; desc: string }) {
-  return (
-    <View style={styles.legendItem}>
-      <View style={[styles.legendDot, { backgroundColor: color }]} />
-      <Text style={styles.legendText}>
-        <Text style={{ fontWeight: '700' }}>{label}</Text> — {desc}
-      </Text>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Phase: Broadcasting (waiting for claim)
-// ---------------------------------------------------------------------------
 function BroadcastingPhase() {
-  const { statusMessage } = useVerificationStore();
   const spin = useRef(new Animated.Value(0)).current;
+  const { statusMessage } = useVerificationStore();
 
   useEffect(() => {
     Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 2000, useNativeDriver: true, easing: Easing.linear }),
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
     ).start();
   }, [spin]);
 
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rotate = spin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.phaseContainer}>
-      <Animated.Text style={[styles.dragonEmoji, { transform: [{ rotate }] }]}>🕐</Animated.Text>
+      <Animated.Text style={[styles.hero, { transform: [{ rotate }] }]}>LIVE</Animated.Text>
       <Text style={styles.phaseTitle}>Spot Broadcast Live</Text>
       <Text style={styles.statusMsg}>{statusMessage}</Text>
-      <Text style={styles.pendingKarmaText}>+{KARMA_REWARDS.SHARE_SPOT} karma pending</Text>
-      <Text style={styles.broadcastSubtext}>
-        Nearby drivers can see your spot. The karma gods are pleased.
+      <Text style={styles.pendingKarma}>
+        +{KARMA_REWARDS.SHARE_SPOT} karma pending until claimed
       </Text>
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Phase: Claimed
-// ---------------------------------------------------------------------------
 function ClaimedPhase({ onClose }: { onClose: () => void }) {
-  const { statusMessage } = useVerificationStore();
-  const scale = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(scale, { toValue: 1, tension: 60, friction: 5, useNativeDriver: true }).start();
-  }, [scale]);
-
   return (
     <View style={styles.phaseContainer}>
-      <Animated.Text style={[styles.successEmoji, { transform: [{ scale }] }]}>🎉</Animated.Text>
-      <Text style={styles.phaseTitle}>Spot Claimed!</Text>
-      <Text style={styles.statusMsg}>{statusMessage}</Text>
-      <View style={styles.karmaChip}>
-        <Text style={styles.karmaChipText}>+{KARMA_REWARDS.SHARE_SPOT} Karma Awarded</Text>
-      </View>
-      <TouchableOpacity style={styles.doneButton} onPress={onClose}>
-        <Text style={styles.doneButtonText}>Done ✓</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Phase: Expired / Cancelled / Stolen / Spoofing
-// ---------------------------------------------------------------------------
-function TerminalPhase({ onClose }: { onClose: () => void }) {
-  const { statusMessage, spoofingDetected, claimStatus } = useVerificationStore();
-
-  const emoji =
-    claimStatus === 'stolen'
-      ? '🐉'
-      : spoofingDetected
-      ? '⚡'
-      : '😤';
-
-  return (
-    <View style={styles.phaseContainer}>
-      <Text style={styles.dragonEmoji}>{emoji}</Text>
-      <Text style={styles.phaseTitle}>
-        {claimStatus === 'stolen'
-          ? 'Spot Stolen'
-          : spoofingDetected
-          ? 'Spoofing Detected'
-          : 'No Karma This Time'}
-      </Text>
-      <Text style={styles.statusMsg}>{statusMessage}</Text>
-      <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-        <Text style={styles.cancelButtonText}>Close</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Frozen account screen
-// ---------------------------------------------------------------------------
-function FrozenPhase({ onClose }: { onClose: () => void }) {
-  return (
-    <View style={styles.phaseContainer}>
-      <Text style={styles.dragonEmoji}>❄️</Text>
-      <Text style={styles.phaseTitle}>Karma Frozen</Text>
+      <Text style={styles.hero}>OK</Text>
+      <Text style={styles.phaseTitle}>Spot Claimed</Text>
       <Text style={styles.statusMsg}>
-        Your karma has been frozen. Reflect on your choices. ❄️
+        Your pending karma has been confirmed.
       </Text>
-      <Text style={styles.broadcastSubtext}>
-        3 failed verifications in 7 days. Freeze lifts in 48 hours.
+      <TouchableOpacity style={styles.primaryButton} onPress={onClose}>
+        <Text style={styles.primaryButtonText}>Done</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function TerminalPhase({ onClose }: { onClose: () => void }) {
+  const { statusMessage, verificationStatus } = useVerificationStore();
+
+  return (
+    <View style={styles.phaseContainer}>
+      <Text style={styles.hero}>
+        {verificationStatus === 'spoofed' ? 'GPS' : 'STOP'}
       </Text>
+      <Text style={styles.phaseTitle}>
+        {verificationStatus === 'spoofed' ? 'Spoofing Detected' : 'Verification Stopped'}
+      </Text>
+      <Text style={styles.statusMsg}>{statusMessage}</Text>
       <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
         <Text style={styles.cancelButtonText}>Close</Text>
       </TouchableOpacity>
@@ -361,59 +235,41 @@ function FrozenPhase({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Root screen component
-// ---------------------------------------------------------------------------
 export function LeavingVerificationScreen({ visible, onClose }: Props) {
-  const {
-    verificationStatus,
-    claimStatus,
-    isFrozen,
-    spoofingDetected,
-    cancelVerification,
-    resetVerification,
-    onSpotClaimed,
-  } = useVerificationStore();
-
+  const { verificationStatus, claimStatus, resetVerification, cancelVerification } =
+    useVerificationStore();
   const { addKarma, incrementSpotsShared } = useAppStore();
 
-  // Award karma locally when claimed
   useEffect(() => {
     if (claimStatus === 'claimed') {
       addKarma(KARMA_REWARDS.SHARE_SPOT);
       incrementSpotsShared();
     }
-  }, [claimStatus]);
+  }, [claimStatus, addKarma, incrementSpotsShared]);
 
   const handleClose = () => {
     resetVerification();
     onClose();
   };
 
-  const handleCancel = () => {
-    cancelVerification('manual');
-  };
-
-  // Determine which phase to render
   const renderPhase = () => {
-    if (isFrozen) return <FrozenPhase onClose={handleClose} />;
-
-    if (verificationStatus === 'monitoring' || verificationStatus === 'confirming') {
-      return <MonitoringPhase onCancel={handleCancel} />;
+    if (
+      verificationStatus === 'monitoring' ||
+      verificationStatus === 'suspicious' ||
+      verificationStatus === 'verified'
+    ) {
+      return <MonitoringPhase onCancel={() => cancelVerification('manual')} />;
     }
 
-    if (verificationStatus === 'confirmed') {
-      if (claimStatus === 'waiting') return <BroadcastingPhase />;
+    if (verificationStatus === 'broadcasted') {
       if (claimStatus === 'claimed') return <ClaimedPhase onClose={handleClose} />;
-      if (claimStatus === 'stolen') return <TerminalPhase onClose={handleClose} />;
-      if (claimStatus === 'expired') return <TerminalPhase onClose={handleClose} />;
+      return <BroadcastingPhase />;
     }
 
-    if (verificationStatus === 'cancelled') {
+    if (verificationStatus === 'cancelled' || verificationStatus === 'spoofed') {
       return <TerminalPhase onClose={handleClose} />;
     }
 
-    // idle / initial — shouldn't normally be visible
     return null;
   };
 
@@ -421,12 +277,10 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>ParkingKarma 🅿️</Text>
-          {(verificationStatus === 'idle' || verificationStatus === 'cancelled') && (
-            <TouchableOpacity onPress={handleClose}>
-              <Text style={styles.headerClose}>✕</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.headerTitle}>Parking Karma</Text>
+          <TouchableOpacity onPress={handleClose}>
+            <Text style={styles.headerClose}>X</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.content}>{renderPhase()}</View>
       </SafeAreaView>
@@ -434,9 +288,6 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -458,8 +309,8 @@ const styles = StyleSheet.create({
   },
   headerClose: {
     color: '#888',
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   content: {
     flex: 1,
@@ -468,15 +319,12 @@ const styles = StyleSheet.create({
   },
   phaseContainer: {
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
-  dragonEmoji: {
-    fontSize: 64,
-    marginBottom: 8,
-  },
-  successEmoji: {
-    fontSize: 80,
-    marginBottom: 8,
+  hero: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#FF6B35',
   },
   phaseTitle: {
     color: '#FFFFFF',
@@ -487,151 +335,123 @@ const styles = StyleSheet.create({
   statusMsg: {
     color: '#CCCCCC',
     fontSize: 16,
-    textAlign: 'center',
     lineHeight: 24,
+    textAlign: 'center',
+  },
+  secondary: {
+    color: '#9D9D9D',
+    fontSize: 13,
+    textAlign: 'center',
   },
   passiveMsg: {
     color: '#FF9500',
     fontSize: 14,
     textAlign: 'center',
-    fontStyle: 'italic',
-    paddingHorizontal: 8,
-    marginTop: 4,
   },
   countdown: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  directionText: {
-    color: '#AAAAAA',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  accelText: {
-    color: '#888888',
-    fontSize: 12,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   gaugeContainer: {
     width: '100%',
-    alignItems: 'center',
     gap: 8,
-    marginVertical: 8,
+    alignItems: 'center',
   },
   gaugeTrack: {
     width: '100%',
     height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2A2A2A',
+    borderRadius: 999,
     overflow: 'hidden',
+    backgroundColor: '#222',
   },
   gaugeFill: {
     height: '100%',
-    borderRadius: 6,
   },
   speedText: {
     fontSize: 22,
     fontWeight: '800',
-    fontVariant: ['tabular-nums'],
+  },
+  progressWrap: {
+    width: '100%',
+    gap: 8,
+  },
+  progressLabel: {
+    color: '#34C759',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  progressTrack: {
+    width: '100%',
+    height: 10,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#1A3D2B',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#34C759',
   },
   legend: {
     width: '100%',
     gap: 6,
-    marginTop: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    backgroundColor: '#171717',
+    borderRadius: 12,
+    padding: 12,
   },
   legendText: {
-    color: '#AAAAAA',
+    color: '#B5B5B5',
     fontSize: 13,
   },
-  pendingKarmaText: {
+  pendingKarma: {
     color: '#34C759',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-  },
-  broadcastSubtext: {
-    color: '#888888',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  karmaChip: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginTop: 8,
-  },
-  karmaChipText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  confirmBarContainer: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 6,
-    marginVertical: 4,
-  },
-  confirmBarLabel: {
-    color: '#34C759',
-    fontSize: 13,
-    fontWeight: '600',
     textAlign: 'center',
   },
-  confirmBarTrack: {
+  debugPanel: {
     width: '100%',
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#1A3D2B',
-    overflow: 'hidden',
-  },
-  confirmBarFill: {
-    height: '100%',
-    borderRadius: 5,
-    backgroundColor: '#34C759',
-  },
-  confirmBarPct: {
-    color: '#34C759',
-    fontSize: 12,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
-  cancelButton: {
-    marginTop: 16,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#141826',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: '#2A3352',
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
   },
-  cancelButtonText: {
-    color: '#AAAAAA',
-    fontWeight: '600',
-    fontSize: 15,
+  debugTitle: {
+    color: '#7BB3FF',
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
-  doneButton: {
-    marginTop: 16,
+  debugRow: {
+    color: '#C9D6FF',
+    fontSize: 12,
+    fontFamily: 'Courier New',
+  },
+  primaryButton: {
+    backgroundColor: '#34C759',
     paddingHorizontal: 40,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#34C759',
   },
-  doneButtonText: {
+  primaryButtonText: {
     color: '#FFFFFF',
-    fontWeight: '800',
     fontSize: 16,
+    fontWeight: '800',
+  },
+  cancelButton: {
+    backgroundColor: '#2A2A2A',
+    borderWidth: 1,
+    borderColor: '#444',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  cancelButtonText: {
+    color: '#AAAAAA',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { AppState } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -25,6 +26,24 @@ export default function App() {
         console.log(`Baseline pressure captured: ${pressure.toFixed(2)} hPa`);
       }
     });
+
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      const { verificationStatus, cancelVerification } =
+        useVerificationStore.getState();
+
+      if (
+        nextState !== "active" &&
+        (verificationStatus === "monitoring" ||
+          verificationStatus === "suspicious" ||
+          verificationStatus === "verified")
+      ) {
+        cancelVerification("app_backgrounded");
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+    };
   }, []);
 
   return (
