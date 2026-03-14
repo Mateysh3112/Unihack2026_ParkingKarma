@@ -23,39 +23,41 @@ export const signInUser = async () => {
   const user = data.user;
   if (!user) return null;
 
-  const { data: existing } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
-    .single();
+  await upsertUserRow(user.id);
+  console.log('Supabase connected! User ID:', user.id);
 
-  if (!existing) {
-    await supabase.from('users').insert({
-      id: user.id,
-      name: 'Anonymous User',
+  return user;
+};
+
+async function upsertUserRow(userId: string) {
+  const { error } = await supabase
+    .from('users')
+    .upsert({
+      id: userId,
       karma: 0,
-      tier: 'Seedling',
+      tier: 'seedling',
       karma_strikes: 0,
       is_frozen: false,
       spots_shared: 0,
       spots_claimed: 0,
+    }, {
+      onConflict: 'id',
+      ignoreDuplicates: true,
     });
-    console.log('New user created in Supabase');
-  }
-
-  console.log('Supabase connected! User ID:', user.id);
-  return user;
-};
+  if (error) console.error('User upsert error:', error);
+}
 
 export const signUpWithEmail = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw error;
+  if (data.user) await upsertUserRow(data.user.id);
   return data.user;
 };
 
 export const signInWithEmail = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+  if (data.user) await upsertUserRow(data.user.id);
   return data.user;
 };
 

@@ -28,6 +28,7 @@ import {
   updateSpotStatus,
   subscribeToSpot,
 } from "../services/spots";
+import { supabase } from "../services/supabase";
 import {
   AccelerometerReading,
   ClaimStatus,
@@ -234,7 +235,17 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       detectedFloor: floorData?.floor ?? null,
     });
 
-    createFirestoreSpot(userId, lat, lng, floorData)
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      console.error('No authenticated user found');
+      set({
+        verificationStatus: 'cancelled',
+        statusMessage: 'Authentication required to share a spot.',
+      });
+      return;
+    }
+
+    createFirestoreSpot(authData.user.id, lat, lng, floorData)
       .then((spotId) => {
         set({ spotId });
         // Subscribe to spot updates to know when it's claimed
@@ -252,10 +263,10 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
             get().onSpotClaimed(spot.claimedBy);
           }
         });
-        // Store unsubscribe function for cleanup
-        // Note: In a real app, you'd want to store this and clean it up
       })
-      .catch(() => set({ spotId: `local_${Date.now()}` }));
+      .catch((err) => {
+        console.error('Failed to create spot:', err);
+      });
 
     const monitorStart = Date.now();
     monitoringTimer = setTimeout(() => {
@@ -562,7 +573,7 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
     }
 
     if (reason !== "manual") {
-      const failure = recordFailedVerification("local_user");
+      const failure = recordFailedVerification(useAppStore.getState().user?.id ?? 'unknown');
       strikeCount = failure.strikeCount;
       isFrozen = failure.frozen;
     }
