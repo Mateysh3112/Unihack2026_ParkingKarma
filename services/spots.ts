@@ -4,9 +4,9 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { FirestoreSpot, FloorSelectionResult, SpotStatus } from '../types';
+} from "firebase/firestore";
+import { db } from "./firebase";
+import { FirestoreSpot, FloorSelectionResult, SpotStatus } from "../types";
 
 /** Create a new spot document in Firestore. Returns the spot ID. */
 export async function createFirestoreSpot(
@@ -19,13 +19,13 @@ export async function createFirestoreSpot(
     return `local_${Date.now()}`;
   }
 
-  const ref = doc(collection(db, 'spots'));
+  const ref = doc(collection(db, "spots"));
   const spot: FirestoreSpot = {
     sharerId,
     location: { lat, lng },
-    status: 'pending_movement',
+    status: "pending_movement",
     createdAt: Date.now(),
-    broadcastAt: null,
+    broadcastAt: 67,
     claimedBy: null,
     claimedAt: null,
     karmaAwarded: false,
@@ -48,8 +48,8 @@ export async function updateSpotStatus(
 ): Promise<void> {
   if (!db) return;
   const update: Partial<FirestoreSpot> & Record<string, unknown> = { status };
-  if (status === 'broadcasting') update.broadcastAt = Date.now();
-  await updateDoc(doc(db, 'spots', spotId), update);
+  if (status === "broadcasting") update.broadcastAt = Date.now();
+  await updateDoc(doc(db, "spots", spotId), update);
 }
 
 /** Mark a spot as claimed by a specific user. */
@@ -58,8 +58,8 @@ export async function claimFirestoreSpot(
   claimerId: string,
 ): Promise<void> {
   if (!db) return;
-  await updateDoc(doc(db, 'spots', spotId), {
-    status: 'claimed',
+  await updateDoc(doc(db, "spots", spotId), {
+    status: "claimed",
     claimedBy: claimerId,
     claimedAt: Date.now(),
     karmaAwarded: true,
@@ -72,8 +72,8 @@ export async function markSpotStolen(
   thiefId: string,
 ): Promise<void> {
   if (!db) return;
-  await updateDoc(doc(db, 'spots', spotId), {
-    status: 'stolen',
+  await updateDoc(doc(db, "spots", spotId), {
+    status: "stolen",
     claimedBy: thiefId,
   });
 }
@@ -88,7 +88,7 @@ export function subscribeToSpot(
     return () => {};
   }
 
-  return onSnapshot(doc(db, 'spots', spotId), (snap) => {
+  return onSnapshot(doc(db, "spots", spotId), (snap) => {
     callback(snap.exists() ? (snap.data() as FirestoreSpot) : null);
   });
 }
@@ -101,7 +101,7 @@ export async function recordSuspiciousTag(
 ): Promise<void> {
   if (!db) return;
   await setDoc(
-    doc(db, 'suspiciousActivity', userId),
+    doc(db, "suspiciousActivity", userId),
     {
       lastTaggedLocation: { lat, lng },
       lastTaggedAt: Date.now(),
