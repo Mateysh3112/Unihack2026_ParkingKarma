@@ -25,6 +25,7 @@ export function AuthScreen() {
   const [displayName, setDisplayName] = useState("");
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isAnonLoading, setAnonIsLoading] = useState(false);
 
   const handleAnonymousSignIn = async () => {
     if (!auth) {
@@ -32,13 +33,13 @@ export function AuthScreen() {
       return;
     }
 
-    setIsLoading(true);
+    setAnonIsLoading(true);
     try {
       await signInAnonymously(auth);
     } catch (error: any) {
       Alert.alert("Error", error.message);
     } finally {
-      setIsLoading(false);
+      setAnonIsLoading(false);
     }
   };
 
@@ -95,9 +96,9 @@ export function AuthScreen() {
           <TouchableOpacity
             style={styles.anonymousButton}
             onPress={handleAnonymousSignIn}
-            disabled={isLoading}
+            disabled={isAnonLoading}
           >
-            {isLoading ? (
+            {isAnonLoading ? (
               <ActivityIndicator color={PD.ink} />
             ) : (
               <Text style={styles.anonymousButtonText}>Continue as Guest</Text>
