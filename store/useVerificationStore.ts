@@ -23,7 +23,11 @@ import {
   checkCooldownFraud,
   recordFailedVerification,
 } from "../services/anticheat";
-import { createFirestoreSpot, updateSpotStatus, subscribeToSpot } from "../services/spots";
+import {
+  createFirestoreSpot,
+  updateSpotStatus,
+  subscribeToSpot,
+} from "../services/spots";
 import {
   AccelerometerReading,
   ClaimStatus,
