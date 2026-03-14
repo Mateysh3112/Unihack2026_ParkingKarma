@@ -1,4 +1,4 @@
-export type KarmaTier = 'Seedling' | 'Balanced' | 'Enlightened' | 'Dragon';
+export type KarmaTier = "Seedling" | "Balanced" | "Enlightened" | "Dragon";
 
 // ---------------------------------------------------------------------------
 // Car park types
@@ -6,7 +6,7 @@ export type KarmaTier = 'Seedling' | 'Balanced' | 'Enlightened' | 'Dragon';
 
 /** A known multi-storey car park in the Firestore `carParks` collection. */
 export interface CarPark {
-  id: string;                           // Firestore document ID
+  id: string; // Firestore document ID
   name: string;
   location: { lat: number; lng: number };
   boundingBox: {
@@ -16,9 +16,9 @@ export interface CarPark {
     west: number;
   };
   totalFloors: number;
-  floorHeight: number;                  // metres per floor
+  floorHeight: number; // metres per floor
   isVerified: boolean;
-  confirmations: string[];              // user IDs who confirmed a sighting
+  confirmations: string[]; // user IDs who confirmed a sighting
 }
 
 /**
@@ -35,32 +35,34 @@ export interface FloorSelectionResult {
 }
 
 export type SpotStatus =
-  | 'pending_movement'
-  | 'broadcasting'
-  | 'claimed'
-  | 'expired'
-  | 'stolen';
+  | "pending_movement"
+  | "broadcasting"
+  | "claimed"
+  | "expired"
+  | "stolen";
 
 export type VerificationStatus =
-  | 'idle'
-  | 'monitoring'
-  | 'suspicious'
-  | 'verified'
-  | 'broadcasted'
-  | 'cancelled'
-  | 'spoofed';
+  | "idle"
+  | "monitoring"
+  | "suspicious"
+  | "verified"
+  | "broadcasted"
+  | "cancelled"
+  | "spoofed";
 
-export type ClaimStatus = 'waiting' | 'claimed' | 'expired' | 'stolen' | null;
+export type ClaimStatus = "waiting" | "claimed" | "expired" | "stolen" | null;
 
 export interface User {
   id: string;
   name: string;
+  email?: string | null;
+  photoURL?: string | null;
   karma: number;
   tier: KarmaTier;
   karmaStrikes: number;
   isFrozen: boolean;
-  freezeExpiresAt: number | null;       // ms timestamp
-  parkingSinnerUntil: number | null;    // ms timestamp
+  freezeExpiresAt: number | null; // ms timestamp
+  parkingSinnerUntil: number | null; // ms timestamp
   spotsShared: number;
   spotsUsed: number;
 }

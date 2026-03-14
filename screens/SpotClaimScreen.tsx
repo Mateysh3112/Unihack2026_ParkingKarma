@@ -286,7 +286,7 @@ export function SpotClaimScreen({
 
           {/* Actions */}
           <TouchableOpacity style={styles.claimButton} onPress={handleClaim}>
-            <Text style={styles.claimButtonText}>Claimed! 🎉</Text>
+            <Text style={styles.claimButtonText}>CLAIM</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

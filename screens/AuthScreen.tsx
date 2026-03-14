@@ -15,6 +15,7 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { auth } from "../services/firebase";
+import { createUserProfile } from "../services/user";
 import { PD, pdTitle, pdLabel, pdMuted } from "../theme";
 
 export function AuthScreen() {
@@ -22,6 +23,7 @@ export function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleAnonymousSignIn = async () => {
@@ -64,10 +66,15 @@ export function AuthScreen() {
           email,
           password,
         );
-        // Update display name if provided
-        if (displayName) {
-          await updateProfile(userCredential.user, { displayName });
-        }
+
+        // Update auth profile (so future sign-ins include this info)
+        await updateProfile(userCredential.user, {
+          displayName,
+          photoURL: photoURL ?? undefined,
+        });
+
+        // Ensure Firestore profile includes display name + photo URL
+        await createUserProfile(userCredential.user, displayName, photoURL);
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -116,13 +123,23 @@ export function AuthScreen() {
             </TouchableOpacity>
 
             {isSignUp && (
-              <TextInput
-                style={styles.input}
-                placeholder="Display Name"
-                value={displayName}
-                onChangeText={setDisplayName}
-                autoCapitalize="words"
-              />
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Display Name"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  autoCapitalize="words"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Profile Image URL (optional)"
+                  value={photoURL ?? ""}
+                  onChangeText={(text) => setPhotoURL(text || null)}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </>
             )}
 
             <TextInput

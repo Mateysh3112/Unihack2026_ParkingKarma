@@ -16,6 +16,7 @@ import { getKarmaTier } from "./karma";
 export const createUserProfile = async (
   firebaseUser: any,
   displayName?: string,
+  photoURL?: string | null,
 ): Promise<User> => {
   if (!db) throw new Error("Firestore not configured");
 
@@ -27,6 +28,8 @@ export const createUserProfile = async (
       firebaseUser.displayName ||
       firebaseUser.email?.split("@")[0] ||
       "Anonymous User",
+    email: firebaseUser.email ?? null,
+    photoURL: photoURL ?? firebaseUser.photoURL ?? null,
     karma: 0,
     tier: "Seedling",
     karmaStrikes: 0,
@@ -37,7 +40,8 @@ export const createUserProfile = async (
     spotsUsed: 0,
   };
 
-  await setDoc(userRef, userData);
+  // Merge with existing document to avoid overwriting karma/stats if it already exists
+  await setDoc(userRef, userData, { merge: true });
   return userData;
 };
 
