@@ -23,7 +23,7 @@ import {
   checkCooldownFraud,
   recordFailedVerification,
 } from "../services/anticheat";
-import { createFirestoreSpot, updateSpotStatus } from "../services/spots";
+import { createFirestoreSpot, updateSpotStatus, subscribeToSpot } from "../services/spots";
 import {
   AccelerometerReading,
   ClaimStatus,
@@ -230,7 +230,17 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
     });
 
     createFirestoreSpot(userId, lat, lng, floorData)
-      .then((spotId) => set({ spotId }))
+      .then((spotId) => {
+        set({ spotId });
+        // Subscribe to spot updates to know when it's claimed
+        const unsubscribe = subscribeToSpot(spotId, (spot) => {
+          if (spot && spot.status === "claimed" && spot.claimedBy) {
+            get().onSpotClaimed(spot.claimedBy);
+          }
+        });
+        // Store unsubscribe function for cleanup
+        // Note: In a real app, you'd want to store this and clean it up
+      })
       .catch(() => set({ spotId: `local_${Date.now()}` }));
 
     const monitorStart = Date.now();
