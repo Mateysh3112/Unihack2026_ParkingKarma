@@ -8,6 +8,7 @@ import {
   orderBy,
   limit,
   getDocs,
+  where,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { User, LeaderboardEntry } from "../types";
@@ -124,7 +125,12 @@ export const getLeaderboard = async (
 
   try {
     const usersRef = collection(db, "users");
-    const q = query(usersRef, orderBy("karma", "desc"), limit(limitCount));
+    const q = query(
+      usersRef,
+      where("karma", ">", 0),
+      orderBy("karma", "desc"),
+      limit(limitCount),
+    );
     const querySnapshot = await getDocs(q);
 
     const leaderboard: LeaderboardEntry[] = [];
