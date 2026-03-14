@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { User, ParkingSpot, LeaderboardEntry } from "../types";
 import { getKarmaTier } from "../services/karma";
 import { TIMEOUTS } from "../services/movement";
-import { auth } from "../services/firebase";
+import { supabase } from "../services/supabase";
 import {
   createUserProfile,
   getUserProfile,
@@ -11,7 +11,6 @@ import {
   incrementUserStats,
   getLeaderboard,
 } from "../services/user";
-import { onAuthStateChanged } from "firebase/auth";
 
 interface AppState {
   user: User | null;
@@ -61,19 +60,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   leaderboard: [],
 
   initializeAuth: () => {
-    if (!auth) {
-      set({ isLoading: false });
-      return;
-    }
-
-    onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // User is signed in
-        let userProfile = await getUserProfile(firebaseUser.uid);
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        let userProfile = await getUserProfile(session.user.id);
 
         if (!userProfile) {
-          // Create new user profile
-          userProfile = await createUserProfile(firebaseUser);
+          userProfile = await createUserProfile(session.user);
         }
 
         set({
@@ -82,7 +74,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           isLoading: false,
         });
       } else {
-        // User is signed out
         set({
           user: null,
           isAuthenticated: false,
@@ -93,9 +84,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   signOut: async () => {
-    if (auth) {
-      await auth.signOut();
-    }
+    await supabase.auth.signOut();
   },
 
   addKarma: async (amount) => {
