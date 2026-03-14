@@ -1,8 +1,21 @@
-import { useAppStore } from '../store/useAppStore';
-import { getTierInfo, getNextTier, KARMA_REWARDS } from '../services/karma';
+import { useAppStore } from "../store/useAppStore";
+import { getTierInfo, getNextTier, KARMA_REWARDS } from "../services/karma";
 
 export function useKarma() {
   const { user, addKarma } = useAppStore();
+
+  if (!user) {
+    return {
+      karma: 0,
+      tier: "Seedling" as const,
+      tierInfo: getTierInfo("Seedling"),
+      nextTier: getNextTier(0),
+      progressToNextTier: 0,
+      shareSpot: () => {},
+      useSpot: () => {},
+    };
+  }
+
   const tierInfo = getTierInfo(user.tier);
   const nextTier = getNextTier(user.karma);
 
