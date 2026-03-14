@@ -1,35 +1,38 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  arrayUnion,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
 import { CarPark } from '../types';
-import { BOUNDING_BOX_RADIUS_METRES, CAR_PARK_DISCOVERY_THRESHOLD, FLOOR_HEIGHT_METRES } from './barometer';
+import {
+  BOUNDING_BOX_RADIUS_METRES,
+  CAR_PARK_DISCOVERY_THRESHOLD,
+  FLOOR_HEIGHT_METRES,
+} from './barometer';
 
-// ---------------------------------------------------------------------------
-// Car park lookup
-// ---------------------------------------------------------------------------
+function rowToCarPark(row: any): CarPark {
+  return {
+    id: row.id,
+    name: row.name,
+    location: row.location,
+    boundingBox: row.bounding_box,
+    totalFloors: row.total_floors,
+    floorHeight: row.floor_height,
+    isVerified: row.is_verified,
+    confirmations: row.confirmations ?? [],
+  };
+}
 
 /**
  * Check if a lat/lng falls within any known car park's bounding box.
- * Queries all car parks and filters client-side (Firestore doesn't support
- * compound inequality queries across different fields without composite indexes).
- * Returns the matching CarPark with its Firestore ID, or null.
+ * Returns the matching CarPark or null.
  */
 export async function isInsideCarPark(
   userLat: number,
   userLng: number,
 ): Promise<CarPark | null> {
-  if (!db) return null;
   try {
-    const snap = await getDocs(collection(db, 'carParks'));
-    for (const docSnap of snap.docs) {
-      const data = docSnap.data();
-      const { north, south, east, west } = data.boundingBox ?? {};
+    const { data, error } = await supabase.from('car_parks').select('*');
+    if (error || !data) return null;
+
+    for (const row of data) {
+      const { north, south, east, west } = row.bounding_box ?? {};
       if (
         north !== undefined &&
         userLat <= north &&
@@ -37,91 +40,75 @@ export async function isInsideCarPark(
         userLng <= east &&
         userLng >= west
       ) {
-        return { id: docSnap.id, ...data } as CarPark;
+        return rowToCarPark(row);
       }
     }
   } catch {
-    // Offline or permission error — fail open (treat as unknown location)
+    // fail open — treat as unknown location
   }
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Community car park creation
-// ---------------------------------------------------------------------------
-
 /**
  * Create a new unverified car park centred on the user's current position.
- * The bounding box is a square with BOUNDING_BOX_RADIUS_METRES on each side.
- * Returns the new Firestore document ID.
+ * Returns the new row ID.
  */
 export async function createUnverifiedCarPark(
   lat: number,
   lng: number,
   userId: string,
 ): Promise<string> {
-  if (!db) {
-    return `local_carpark_${Date.now()}`;
-  }
-
-  // Convert metres to approximate lat/lng degrees
   const latDelta = BOUNDING_BOX_RADIUS_METRES / 111_320;
-  const lngDelta = BOUNDING_BOX_RADIUS_METRES / (111_320 * Math.cos((lat * Math.PI) / 180));
+  const lngDelta =
+    BOUNDING_BOX_RADIUS_METRES / (111_320 * Math.cos((lat * Math.PI) / 180));
 
-  const ref = doc(collection(db, 'carParks'));
-  const carPark: Omit<CarPark, 'id'> = {
-    name: 'Unknown Car Park',
-    location: { lat, lng },
-    boundingBox: {
-      north: lat + latDelta,
-      south: lat - latDelta,
-      east: lng + lngDelta,
-      west: lng - lngDelta,
-    },
-    totalFloors: 10,
-    floorHeight: FLOOR_HEIGHT_METRES,
-    isVerified: false,
-    confirmations: [userId],
-  };
-  await setDoc(ref, carPark);
-  return ref.id;
+  const { data, error } = await supabase
+    .from('car_parks')
+    .insert({
+      name: 'Unknown Car Park',
+      location: { lat, lng },
+      bounding_box: {
+        north: lat + latDelta,
+        south: lat - latDelta,
+        east: lng + lngDelta,
+        west: lng - lngDelta,
+      },
+      total_floors: 10,
+      floor_height: FLOOR_HEIGHT_METRES,
+      is_verified: false,
+      confirmations: [userId],
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) return `local_carpark_${Date.now()}`;
+  return data.id;
 }
-
-// ---------------------------------------------------------------------------
-// Community verification
-// ---------------------------------------------------------------------------
 
 /**
  * Record a user sighting at an existing unverified car park.
- * If the total unique confirmations reach CAR_PARK_DISCOVERY_THRESHOLD,
- * the car park is automatically marked as verified.
- *
- * Returns { justVerified: true } if this sighting pushed it over the threshold.
+ * Auto-verifies after CAR_PARK_DISCOVERY_THRESHOLD unique confirmations.
  */
 export async function confirmCarParkSighting(
   carParkId: string,
   userId: string,
   currentConfirmations: string[],
 ): Promise<{ justVerified: boolean }> {
-  if (!db) {
-    return { justVerified: false };
-  }
-
-  // Don't double-count the same user
   if (currentConfirmations.includes(userId)) {
     return { justVerified: false };
   }
 
-  const updatedCount = currentConfirmations.length + 1;
-  const justVerified = updatedCount >= CAR_PARK_DISCOVERY_THRESHOLD;
+  const updatedConfirmations = [...currentConfirmations, userId];
+  const justVerified = updatedConfirmations.length >= CAR_PARK_DISCOVERY_THRESHOLD;
 
-  const update: Record<string, unknown> = {
-    confirmations: arrayUnion(userId),
-  };
-  if (justVerified) {
-    update.isVerified = true;
-  }
+  const update: Record<string, unknown> = { confirmations: updatedConfirmations };
+  if (justVerified) update.is_verified = true;
 
-  await updateDoc(doc(db, 'carParks', carParkId), update);
+  const { error } = await supabase
+    .from('car_parks')
+    .update(update)
+    .eq('id', carParkId);
+
+  if (error) return { justVerified: false };
   return { justVerified };
 }

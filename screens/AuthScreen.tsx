@@ -11,13 +11,7 @@ import {
   Platform,
   ScrollView,
 } from "react-native";
-import {
-  signInAnonymously,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  updateProfile,
-} from "firebase/auth";
-import { auth } from "../services/firebase";
+import { supabase } from "../services/supabase";
 import { createUserProfile } from "../services/user";
 import { PD, pdTitle, pdLabel, pdMuted } from "../theme";
 
@@ -34,14 +28,10 @@ export function AuthScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   const handleAnonymousSignIn = async () => {
-    if (!auth) {
-      Alert.alert("Error", "Firebase not configured");
-      return;
-    }
-
     setAnonIsLoading(true);
     try {
-      await signInAnonymously(auth);
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) Alert.alert("Error", error.message);
     } catch (error: any) {
       Alert.alert("Error", error.message);
     } finally {
@@ -50,11 +40,6 @@ export function AuthScreen() {
   };
 
   const handleEmailAuth = async () => {
-    if (!auth) {
-      Alert.alert("Error", "Firebase not configured");
-      return;
-    }
-
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
@@ -68,21 +53,14 @@ export function AuthScreen() {
     setIsLoading(true);
     try {
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password,
-        );
-
-        // Update auth profile (so future sign-ins include this info)
-        await updateProfile(userCredential.user, {
-          displayName,
-        });
-
-        // Ensure Firestore profile includes display name
-        await createUserProfile(userCredential.user, displayName);
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data.user) {
+          await createUserProfile(data.user, displayName);
+        }
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
       }
     } catch (error: any) {
       Alert.alert("Error", error.message);

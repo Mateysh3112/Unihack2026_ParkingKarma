@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cd \"C:\\\\Users\\\\amate\\\\iCloudDrive\\\\Documents\\\\University\\\\UniHack 2026\\\\ParkingKarma\" && npx tsc --noEmit 2>&1)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -21,7 +21,7 @@ import {
   ELEVATED_THRESHOLD_METRES,
 } from '../services/barometer';
 import { isInsideCarPark } from '../services/carParks';
-import { subscribeToBroadcastingSpots } from '../services/spots';
+import { subscribeToBroadcastingSpots, expireOldSpots } from '../services/spots';
 import { haversineDistance } from '../services/movement';
 import { fetchMelbourneParkingBays } from '../services/melbourneSensors';
 
@@ -89,7 +89,12 @@ export function MapScreen() {
       setBroadcastingSpots(nextSpots);
     });
 
-    return unsubscribe;
+    const expiryInterval = setInterval(expireOldSpots, 60_000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(expiryInterval);
+    };
   }, []);
 
   useEffect(() => {
