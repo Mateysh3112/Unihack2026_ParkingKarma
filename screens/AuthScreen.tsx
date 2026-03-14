@@ -30,10 +30,10 @@ export function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAnonLoading, setAnonIsLoading] = useState(false);
 
-  const displayNameRef = useRef(null);
-  const photoRef = useRef(null);
-  const emailRef = useRef(null);
-  const passwordRef = useRef(null);
+  const displayNameRef = useRef<TextInput>(null);
+  const photoRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const handleAnonymousSignIn = async () => {
     if (!auth) {
@@ -95,11 +95,9 @@ export function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior="padding"
-    >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
+      <ScrollView
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>PARKING KARMA</Text>
