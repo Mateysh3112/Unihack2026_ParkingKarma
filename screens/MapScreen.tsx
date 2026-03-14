@@ -1,33 +1,39 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, View } from "react-native";
-import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
-import * as Location from "expo-location";
-import { FABButton } from "../components/FABButton";
-import { FloorSelectionSheet } from "./FloorSelectionSheet";
-import { LeavingVerificationScreen } from "./LeavingVerificationScreen";
-import { SpotClaimScreen } from "./SpotClaimScreen";
-import { useAppStore } from "../store/useAppStore";
-import { useVerificationStore } from "../store/useVerificationStore";
-import { CarPark, FloorSelectionResult, FirestoreSpot } from "../types";
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { FABButton } from '../components/FABButton';
+import { FloorSelectionSheet } from './FloorSelectionSheet';
+import { LeavingVerificationScreen } from './LeavingVerificationScreen';
+import { SpotClaimScreen } from './SpotClaimScreen';
+import { useAppStore } from '../store/useAppStore';
+import { useVerificationStore } from '../store/useVerificationStore';
+import {
+  CarPark,
+  FloorSelectionResult,
+  FirestoreSpot,
+  ParkingBay,
+} from '../types';
 import {
   sampleBarometer,
   computeAltitude,
   computeFloor,
   ELEVATED_THRESHOLD_METRES,
-} from "../services/barometer";
-import { isInsideCarPark } from "../services/carParks";
-import { subscribeToBroadcastingSpots } from "../services/spots";
-import { haversineDistance } from "../services/movement";
+} from '../services/barometer';
+import { isInsideCarPark } from '../services/carParks';
+import { subscribeToBroadcastingSpots } from '../services/spots';
+import { haversineDistance } from '../services/movement';
+import { fetchMelbourneParkingBays } from '../services/melbourneSensors';
 
-const MELBOURNE = {
-  latitude: -37.8136,
-  longitude: 144.9631,
+const INITIAL_REGION = {
+  latitude: -37.81263375505453,
+  longitude: 144.9626319477889,
   latitudeDelta: 0.01,
   longitudeDelta: 0.01,
 };
 
 export function MapScreen() {
-  const [region, setRegion] = useState(MELBOURNE);
+  const [region, setRegion] = useState(INITIAL_REGION);
   const [verificationVisible, setVerificationVisible] = useState(false);
   const [floorSheetVisible, setFloorSheetVisible] = useState(false);
   const [detecting, setDetecting] = useState(false);
@@ -45,6 +51,7 @@ export function MapScreen() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [sensorBays, setSensorBays] = useState<ParkingBay[]>([]);
 
   const pendingLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -63,24 +70,46 @@ export function MapScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        const userLoc = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-        setCurrentLocation(userLoc);
-        setRegion((r) => ({
-          ...r,
-          latitude: userLoc.lat,
-          longitude: userLoc.lng,
+        const nextLocation = {
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        };
+        setCurrentLocation(nextLocation);
+        setRegion((prev) => ({
+          ...prev,
+          latitude: nextLocation.lat,
+          longitude: nextLocation.lng,
         }));
       } catch {
-        // Use default region when location is unavailable.
+        // Keep the Melbourne CBD default region.
       }
     })();
 
-    // Subscribe to broadcasting spots
-    const unsubscribe = subscribeToBroadcastingSpots((spots) => {
-      setBroadcastingSpots(spots);
+    const unsubscribe = subscribeToBroadcastingSpots((nextSpots) => {
+      setBroadcastingSpots(nextSpots);
     });
 
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSensorBays = () => {
+      fetchMelbourneParkingBays().then((bays) => {
+        if (!isMounted) return;
+        console.log('Sensor bays loaded:', bays.length);
+        setSensorBays(bays);
+      });
+    };
+
+    loadSensorBays();
+    const interval = setInterval(loadSensorBays, 30_000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const launchVerification = async (floorData?: FloorSelectionResult) => {
@@ -105,8 +134,13 @@ export function MapScreen() {
         lng: loc.coords.longitude,
       };
 
-      setRegion((r) => ({
-        ...r,
+      setCurrentLocation({
+        lat: loc.coords.latitude,
+        lng: loc.coords.longitude,
+      });
+
+      setRegion((prev) => ({
+        ...prev,
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
       }));
@@ -147,8 +181,8 @@ export function MapScreen() {
       });
     } catch {
       Alert.alert(
-        "Location unavailable",
-        "Could not start departure verification.",
+        'Location unavailable',
+        'Could not start departure verification.',
       );
     } finally {
       setDetecting(false);
@@ -163,8 +197,8 @@ export function MapScreen() {
   const handleSpotPress = (spot: FirestoreSpot & { id: string }) => {
     if (!currentLocation) {
       Alert.alert(
-        "Location required",
-        "Please enable location services to claim spots.",
+        'Location required',
+        'Please enable location services to claim spots.',
       );
       return;
     }
@@ -177,8 +211,7 @@ export function MapScreen() {
     );
 
     if (distance > 1000) {
-      // Only show spots within 1km
-      Alert.alert("Too far", "This spot is too far away to claim.");
+      Alert.alert('Too far', 'This spot is too far away to claim.');
       return;
     }
 
@@ -212,7 +245,6 @@ export function MapScreen() {
         showsUserLocation
         showsMyLocationButton
       >
-        {/* Local spots (user's own spots) */}
         {spots.map((spot) => (
           <Marker
             key={spot.id}
@@ -222,7 +254,7 @@ export function MapScreen() {
             pinColor="#FF6B35"
           />
         ))}
-        {/* Broadcasting spots from other users */}
+
         {broadcastingSpots.map((spot) => (
           <Marker
             key={spot.id}
@@ -236,12 +268,19 @@ export function MapScreen() {
             onPress={() => handleSpotPress(spot)}
           />
         ))}
+
+        {sensorBays.map((bay) => (
+          <Marker
+            key={`sensor-${bay.bayId}`}
+            coordinate={{ latitude: bay.lat, longitude: bay.lng }}
+            pinColor="blue"
+            title={`Bay ${bay.markerId}`}
+            description="City of Melbourne sensor — currently empty"
+          />
+        ))}
       </MapView>
 
-      <FABButton
-        onPress={handleLeaving}
-        label={detecting ? "CHECKING..." : "I'M LEAVING!"}
-      />
+      <FABButton onPress={handleLeaving} label={detecting ? 'CHECKING...' : "I'M LEAVING!"} />
 
       <FloorSelectionSheet
         visible={floorSheetVisible}
