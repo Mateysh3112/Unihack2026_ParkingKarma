@@ -1,6 +1,21 @@
 export type KarmaTier = 'Seedling' | 'Balanced' | 'Enlightened' | 'Dragon';
 
 // ---------------------------------------------------------------------------
+// Melbourne sensor types
+// ---------------------------------------------------------------------------
+
+/** A live parking bay from the City of Melbourne in-ground sensor network */
+export interface ParkingBay {
+  bayId: string;
+  markerId: string;
+  status: 'Unoccupied' | 'Occupied' | 'Unknown';
+  lat: number;
+  lng: number;
+  lastUpdated: Date;
+  source: 'melbourne_sensor';
+}
+
+// ---------------------------------------------------------------------------
 // Car park types
 // ---------------------------------------------------------------------------
 

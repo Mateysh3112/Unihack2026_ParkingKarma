@@ -51,7 +51,7 @@ export async function updateSpotStatus(
   status: SpotStatus,
 ): Promise<void> {
   if (!db) return;
-  const update: Partial<FirestoreSpot> & Record<string, unknown> = { status };
+  const update: Record<string, unknown> = { status };
   if (status === "broadcasting") update.broadcastAt = serverTimestamp();
   await updateDoc(doc(db, "spots", spotId), update);
 }
