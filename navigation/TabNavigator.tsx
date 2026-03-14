@@ -45,8 +45,8 @@ export function TabNavigator() {
           backgroundColor: PD.bg,
           borderTopWidth: PD.borderWidth,
           borderTopColor: PD.border,
-          height: 60,
-          paddingBottom: 6,
+          height: 80,
+          paddingBottom: 26,
           paddingTop: 2,
         },
         tabBarLabelStyle: {
