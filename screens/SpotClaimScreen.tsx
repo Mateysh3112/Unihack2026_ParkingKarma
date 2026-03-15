@@ -21,6 +21,7 @@ import {
   updateSuspectLocation,
 } from "../services/anticheat";
 import { claimFirestoreSpot } from "../services/spots";
+import { fetchNearestBay, NearestBayInfo } from "../services/parkingBays";
 
 interface NearbySpot {
   id: string;
@@ -72,6 +73,7 @@ export function SpotClaimScreen({
   const [claimed, setClaimed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expiresIn, setExpiresIn] = useState(600); // 10 minutes
+  const [bayInfo, setBayInfo] = useState<NearestBayInfo | null>(null);
 
   const {
     user,
@@ -93,6 +95,8 @@ export function SpotClaimScreen({
       setClaimed(false);
       setDismissed(false);
       setExpiresIn(600);
+      setBayInfo(null);
+      fetchNearestBay(spot.lat, spot.lng).then(setBayInfo);
 
       Animated.spring(slideIn, {
         toValue: 0,
@@ -264,9 +268,39 @@ export function SpotClaimScreen({
           <View style={styles.infoRow}>
             <Text style={styles.infoIcon}>📍</Text>
             <Text style={styles.infoText}>
-              {spot.lat.toFixed(5)}, {spot.lng.toFixed(5)}
+              {bayInfo?.street_name
+                ? bayInfo.street_name
+                : `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}`}
             </Text>
           </View>
+
+          {/* Parking restrictions */}
+          {bayInfo?.restrictions?.length ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}>🅿</Text>
+              <Text style={styles.infoText}>
+                {bayInfo.restrictions[0].description ?? bayInfo.restrictions[0].typeDesc}
+                {bayInfo.restrictions[0].durationMinutes
+                  ? ` · ${bayInfo.restrictions[0].durationMinutes} min max`
+                  : ""}
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Meter info */}
+          {bayInfo?.meter ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}>💳</Text>
+              <Text style={styles.infoText}>
+                {[
+                  bayInfo.meter.tapAndGo && "Tap & Go",
+                  bayInfo.meter.cardAccepted && "Card accepted",
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "Paid parking"}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Floor / car park info — only shown for multi-storey spots */}
           {(spot.isMultiStorey ||
