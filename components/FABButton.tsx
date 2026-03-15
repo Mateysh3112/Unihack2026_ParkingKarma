@@ -21,10 +21,6 @@ export function FABButton({ onPress, label = "I'M LEAVING!" }: FABButtonProps) {
 
 const styles = StyleSheet.create({
   shadowLayer: {
-    position: 'absolute',
-    bottom: 28,
-    alignSelf: 'center',
-    // Offset black box = pixel-art drop shadow
     borderWidth: PD.borderWidthThick,
     borderColor: PD.border,
     backgroundColor: PD.border,

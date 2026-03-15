@@ -1,19 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import * as Location from 'expo-location';
-import { FABButton } from '../components/FABButton';
-import { FloorSelectionSheet } from './FloorSelectionSheet';
-import { LeavingVerificationScreen } from './LeavingVerificationScreen';
-import { SpotClaimScreen } from './SpotClaimScreen';
-import { useAppStore } from '../store/useAppStore';
-import { useVerificationStore } from '../store/useVerificationStore';
-import {
-  CarPark,
-  FloorSelectionResult,
-  FirestoreSpot,
-  ParkingBay,
-} from '../types';
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
+import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+import * as Location from "expo-location";
+import { FABButton } from "../components/FABButton";
+import { FloorSelectionSheet } from "./FloorSelectionSheet";
+import { LeavingVerificationScreen } from "./LeavingVerificationScreen";
+import { SpotClaimScreen } from "./SpotClaimScreen";
+import { useAppStore } from "../store/useAppStore";
+import { useVerificationStore } from "../store/useVerificationStore";
+import { CarPark, FloorSelectionResult, FirestoreSpot } from "../types";
 import {
   sampleBarometer,
   computeAltitude,
@@ -47,6 +42,7 @@ export function MapScreen() {
   const [selectedSpot, setSelectedSpot] = useState<
     (FirestoreSpot & { id: string }) | null
   >(null);
+  const [isDisabledSpot, setIsDisabledSpot] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{
     lat: number;
     lng: number;
@@ -280,7 +276,20 @@ export function MapScreen() {
         ))}
       </MapView>
 
-      <FABButton onPress={handleLeaving} label={detecting ? 'CHECKING...' : "I'M LEAVING!"} />
+      <View style={styles.fabContainer}>
+        <View style={styles.toggleRow}>
+          <Text style={styles.toggleLabel}>♿ Disabled Spot</Text>
+          <Switch
+          value={isDisabledSpot}
+          onValueChange={setIsDisabledSpot}
+          trackColor={{ false: "#444", true: "#FF6B35" }}
+        />
+        </View>
+      <FABButton
+        onPress={handleLeaving}
+        label={detecting ? "CHECKING..." : "I'M LEAVING!"}
+      />
+    </View>
 
       <FloorSelectionSheet
         visible={floorSheetVisible}
@@ -335,4 +344,26 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  fabContainer: {
+    position: "absolute",
+    bottom: 28,
+    alignSelf: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.7)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 10,
+  },
+  toggleLabel: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
 });
