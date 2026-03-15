@@ -58,8 +58,17 @@ export async function fetchMelbourneParkingBays(): Promise<ParkingBay[]> {
       }))
       .filter((bay) => Number.isFinite(bay.lat) && Number.isFinite(bay.lng));
 
-    console.log('Melbourne parking bays returned:', bays.length);
-    return bays;
+    // Deduplicate by bayId — keep the most recently updated one
+    const seen = new Map<string, ParkingBay>();
+    for (const bay of bays) {
+      const existing = seen.get(bay.bayId);
+      if (!existing || bay.lastUpdated > existing.lastUpdated) {
+        seen.set(bay.bayId, bay);
+      }
+    }
+    const dedupedBays = Array.from(seen.values());
+    console.log('[MelbourneSensors] After dedup:', dedupedBays.length);
+    return dedupedBays;
   } catch (error) {
     console.error('Failed to fetch Melbourne parking bays:', error);
     return [];

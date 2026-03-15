@@ -22,6 +22,7 @@ import {
 } from '../services/barometer';
 import { isInsideCarPark } from '../services/carParks';
 import { subscribeToBroadcastingSpots, expireOldSpots } from '../services/spots';
+import { supabase } from '../services/supabase';
 import { haversineDistance } from '../services/movement';
 import { fetchMelbourneParkingBays } from '../services/melbourneSensors';
 import { openGoogleMapsNavigation } from '../services/navigation';
@@ -68,6 +69,16 @@ export function MapScreen() {
   } = useVerificationStore();
 
   useEffect(() => {
+    if (__DEV__) {
+      supabase
+        .from('spots')
+        .delete()
+        .neq('id', 'none')
+        .then(({ error }) => {
+          if (!error) console.log('DEV: Cleared all spots');
+        });
+    }
+
     (async () => {
       try {
         const loc = await Location.getCurrentPositionAsync({
@@ -290,7 +301,7 @@ export function MapScreen() {
           const stale = (Date.now() - bay.lastUpdated.getTime()) > 5 * 60 * 1000;
           return (
             <Marker
-              key={`sensor-${bay.bayId}`}
+              key={`sensor-${bay.bayId}-${bay.lat}-${bay.lng}`}
               coordinate={{ latitude: bay.lat, longitude: bay.lng }}
               pinColor={stale ? '#8E8E93' : '#4285F4'}
               title={`Bay ${bay.markerId}`}

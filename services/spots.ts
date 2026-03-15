@@ -85,6 +85,28 @@ export async function updateSpotStatus(
 
 /** Mark a spot as claimed by a specific user. */
 export async function claimSpot(spotId: string, claimerId: string): Promise<void> {
+  console.log('Claiming spot:', spotId, 'by:', claimerId);
+
+  if (!spotId || spotId.startsWith('local_')) {
+    throw new Error('Invalid spot ID: ' + spotId);
+  }
+  if (!claimerId || claimerId === 'guest') {
+    throw new Error('Invalid claimer ID: ' + claimerId);
+  }
+
+  const { data: spot } = await supabase
+    .from('spots')
+    .select('id, status, sharer_id')
+    .eq('id', spotId)
+    .single();
+
+  console.log('Spot before claim:', JSON.stringify(spot));
+
+  if (!spot) throw new Error('Spot not found');
+  if (spot.status !== 'broadcasting') {
+    throw new Error('Spot not available: ' + spot.status);
+  }
+
   const { error } = await supabase
     .from('spots')
     .update({
@@ -93,8 +115,15 @@ export async function claimSpot(spotId: string, claimerId: string): Promise<void
       claimed_at: new Date().toISOString(),
       karma_awarded: true,
     })
-    .eq('id', spotId);
-  if (error) throw error;
+    .eq('id', spotId)
+    .eq('status', 'broadcasting');
+
+  if (error) {
+    console.error('Claim spot Supabase error:', error);
+    throw error;
+  }
+
+  console.log('Spot claimed successfully!');
 }
 
 /** Backward-compatible alias used by SpotClaimScreen. */
@@ -159,7 +188,7 @@ export function subscribeToBroadcastingSpots(
     .channel('broadcasting-spots')
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'spots', filter: 'status=eq.broadcasting' },
+      { event: '*', schema: 'public', table: 'spots' },
       () => { fetchAndNotify(); },
     )
     .subscribe();

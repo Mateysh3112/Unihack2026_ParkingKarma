@@ -21,6 +21,7 @@ import {
   updateSuspectLocation,
 } from "../services/anticheat";
 import { claimFirestoreSpot } from "../services/spots";
+import { supabase } from "../services/supabase";
 import { openGoogleMapsNavigation } from "../services/navigation";
 import { fetchNearestBay, NearestBayInfo } from "../services/parkingBays";
 
@@ -262,6 +263,19 @@ export function SpotClaimScreen({
       return;
     }
 
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const claimerId = authUser?.id;
+
+    if (!claimerId) {
+      Alert.alert('Error', 'You must be signed in to claim a spot');
+      return;
+    }
+
+    console.log('Attempting claim with:', {
+      spotId: spot?.id,
+      claimerId,
+    });
+
     // Cancel theft tracking — they claimed legitimately
     stopTheftTracking(user.id);
     cleanup();
@@ -272,11 +286,11 @@ export function SpotClaimScreen({
     addKarma(KARMA_REWARDS.SPOT_CLAIMED);
     incrementSpotsUsed();
 
-    // Update Firestore
     try {
-      await claimFirestoreSpot(spot.id, user.id);
-    } catch {
-      // offline — local state already updated
+      await claimFirestoreSpot(spot.id, claimerId);
+    } catch (err) {
+      console.error('Claim failed:', err);
+      Alert.alert('Claim failed', String(err instanceof Error ? err.message : err));
     }
 
     onClaimed();
