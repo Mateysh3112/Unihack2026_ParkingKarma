@@ -26,15 +26,24 @@ export async function fetchNearestBay(
   lon: number,
 ): Promise<NearestBayInfo | null> {
   try {
-    // Bounding box of ~25 m in each direction (~0.00025°)
-    const D = 0.00025;
+    // Bounding box of ~50 m in each direction (~0.0005°)
+    const D = 0.0005;
     const { data, error } = await supabase
       .from('parking_bays')
       .select('street_name, restrictions, meter, lat, lon')
       .gte('lat', lat - D).lte('lat', lat + D)
       .gte('lon', lon - D).lte('lon', lon + D);
 
-    if (error || !data?.length) return null;
+    console.log('[parkingBays] query', { lat, lon, D, rows: data?.length, error });
+
+    if (error) {
+      console.error('[parkingBays] error:', error);
+      return null;
+    }
+    if (!data?.length) {
+      console.log('[parkingBays] no rows found in bounding box');
+      return null;
+    }
 
     // Pick the closest row
     let nearest = data[0];
@@ -44,14 +53,20 @@ export async function fetchNearestBay(
       if (d < nearestDist) { nearestDist = d; nearest = row; }
     }
 
-    if (nearestDist > 25) return null;
+    console.log('[parkingBays] nearest bay', { nearestDist, street_name: nearest.street_name, restrictions: nearest.restrictions, meter: nearest.meter });
+
+    if (nearestDist > 50) {
+      console.log('[parkingBays] nearest bay too far:', nearestDist);
+      return null;
+    }
 
     return {
       street_name: nearest.street_name ?? null,
       restrictions: nearest.restrictions ?? null,
       meter: nearest.meter ?? null,
     };
-  } catch {
+  } catch (e) {
+    console.error('[parkingBays] exception:', e);
     return null;
   }
 }

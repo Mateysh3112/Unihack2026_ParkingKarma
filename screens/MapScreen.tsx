@@ -130,28 +130,15 @@ export function MapScreen() {
 
     setDetecting(true);
     try {
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
-      });
+      // TESTING MODE: use map center instead of GPS so pin can be placed anywhere
+      const lat = region.latitude;
+      const lng = region.longitude;
 
-      pendingLocRef.current = {
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-      };
-
-      setCurrentLocation({
-        lat: loc.coords.latitude,
-        lng: loc.coords.longitude,
-      });
-
-      setRegion((prev) => ({
-        ...prev,
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      }));
+      pendingLocRef.current = { lat, lng };
+      setCurrentLocation({ lat, lng });
 
       const [carPark, currentPressure] = await Promise.all([
-        isInsideCarPark(loc.coords.latitude, loc.coords.longitude),
+        isInsideCarPark(lat, lng),
         sampleBarometer(),
       ]);
 
@@ -200,26 +187,7 @@ export function MapScreen() {
   };
 
   const handleSpotPress = (spot: FirestoreSpot & { id: string }) => {
-    if (!currentLocation) {
-      Alert.alert(
-        'Location required',
-        'Please enable location services to claim spots.',
-      );
-      return;
-    }
-
-    const distance = haversineDistance(
-      currentLocation.lat,
-      currentLocation.lng,
-      spot.location.lat,
-      spot.location.lng,
-    );
-
-    if (distance > 1000) {
-      Alert.alert('Too far', 'This spot is too far away to claim.');
-      return;
-    }
-
+    // TESTING MODE: distance restriction and location requirement removed
     setSelectedSpot(spot);
     setClaimScreenVisible(true);
   };
@@ -247,6 +215,7 @@ export function MapScreen() {
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         region={region}
+        onRegionChangeComplete={setRegion}
         showsUserLocation
         showsMyLocationButton
       >
@@ -255,8 +224,22 @@ export function MapScreen() {
             key={spot.id}
             coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
             title="Your Spot"
-            description="Shared by you"
+            description="Tap to view details"
             pinColor="#FF6B35"
+            onPress={() => handleSpotPress({
+              id: spot.id,
+              sharerId: spot.reportedBy,
+              location: { lat: spot.latitude, lng: spot.longitude },
+              status: 'broadcasting',
+              createdAt: spot.reportedAt.getTime(),
+              broadcastAt: spot.reportedAt.getTime(),
+              claimedBy: null,
+              claimedAt: null,
+              karmaAwarded: false,
+              floor: spot.floor,
+              isMultiStorey: spot.isMultiStorey,
+              carParkName: spot.carParkName,
+            })}
           />
         ))}
 
@@ -274,16 +257,15 @@ export function MapScreen() {
           />
         ))}
 
-        {sensorBays.map((bay) => (
-          <Marker
-            key={`sensor-${bay.bayId}`}
-            coordinate={{ latitude: bay.lat, longitude: bay.lng }}
-            pinColor="blue"
-            title={`Bay ${bay.markerId}`}
-            description="City of Melbourne sensor — currently empty"
-          />
-        ))}
+        {/* sensorBays disabled for now */}
       </MapView>
+
+      {/* Crosshair — shows where the pin will drop */}
+      <View style={styles.crosshair} pointerEvents="none">
+        <View style={styles.crosshairH} />
+        <View style={styles.crosshairV} />
+        <View style={styles.crosshairDot} />
+      </View>
 
       <FABButton onPress={handleLeaving} label={detecting ? 'CHECKING...' : "I'M LEAVING!"} />
 
@@ -340,4 +322,32 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  crosshair: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    width: 0,
+    height: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  crosshairH: {
+    position: 'absolute',
+    width: 24,
+    height: 1.5,
+    backgroundColor: '#FF6B35',
+  },
+  crosshairV: {
+    position: 'absolute',
+    width: 1.5,
+    height: 24,
+    backgroundColor: '#FF6B35',
+  },
+  crosshairDot: {
+    position: 'absolute',
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#FF6B35',
+  },
 });

@@ -204,7 +204,7 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       return;
     }
 
-    if (checkCooldownFraud(userId, lat, lng)) {
+    if (!DISABLE_MOVEMENT_CHECKING && checkCooldownFraud(userId, lat, lng)) {
       set({
         verificationStatus: "cancelled",
         statusMessage:
@@ -249,24 +249,35 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       .then((spotId) => {
         set({ spotId });
         // Subscribe to spot updates to know when it's claimed
-        const unsubscribe = subscribeToSpot(spotId, (spot) => {
+        subscribeToSpot(spotId, (spot) => {
           if (
             spot &&
             spot.status === "claimed" &&
             spot.claimedBy &&
             spot.karmaAwarded
           ) {
-            // Award karma to the sharer when their spot is claimed
             const { addKarma, incrementSpotsShared } = useAppStore.getState();
-            addKarma(15); // SHARE_SPOT reward
+            addKarma(15);
             incrementSpotsShared();
             get().onSpotClaimed(spot.claimedBy);
           }
         });
+
+        // Testing mode: skip GPS watch, broadcast immediately
+        if (DISABLE_MOVEMENT_CHECKING) {
+          set({
+            verificationStatus: "verified",
+            statusMessage: "Testing mode — broadcasting immediately.",
+            confirmationProgress: 1,
+          });
+          get().setBroadcasting();
+        }
       })
       .catch((err) => {
         console.error('Failed to create spot:', err);
       });
+
+    if (DISABLE_MOVEMENT_CHECKING) return;
 
     const monitorStart = Date.now();
     monitoringTimer = setTimeout(() => {
@@ -345,6 +356,7 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
 
           // Temporary: disable movement checking for testing
           if (DISABLE_MOVEMENT_CHECKING) {
+            if (state.verificationStatus === "broadcasted") return;
             set({
               verificationStatus: "verified",
               statusMessage:
@@ -533,9 +545,23 @@ export const useVerificationStore = create<VerificationStore>((set, get) => ({
       confirmationProgress: 1,
     });
 
-    const { spotId } = get();
+    const { spotId, spotLocation } = get();
     if (spotId) {
       updateSpotStatus(spotId, "broadcasting").catch(() => {});
+    }
+
+    // Add to local spots so the orange pin appears on the map immediately
+    if (spotId && spotLocation) {
+      const { addSpot } = useAppStore.getState();
+      addSpot({
+        id: spotId,
+        latitude: spotLocation.lat,
+        longitude: spotLocation.lng,
+        reportedBy: useAppStore.getState().user?.id ?? '',
+        reportedAt: new Date(),
+        active: true,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      });
     }
 
     claimTimer = setTimeout(() => {

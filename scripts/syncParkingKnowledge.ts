@@ -3,17 +3,16 @@
  *
  * ETL script — City of Melbourne Open Data → Supabase knowledge base.
  *
- * Datasets (5 total):
- *   1. On-street Parking Bays    (PRIMARY ANCHOR — 23,864 physical bays, lat/lon, roadsegmentid)
- *   2. On-street Parking Sensors (BRIDGE — lat/lon + kerbsideid, joins kerbsideid→restrictions.bayid)
- *   3. On-street Car Park Bay Restrictions  (key join via sensor bridge)
- *   4. On-street Car Parking Meters         (spatial join — nearest bay within radius)
- *   5. Parking Zones (Street Segments)      (key join: roadsegmentid → segment_id)
+ * Datasets (4 total):
+ *   1. On-street Parking Bays              (PRIMARY ANCHOR — 23,864 physical bays, lat/lon, roadsegmentid)
+ *   2. On-street Car Parking Meters        (spatial join — nearest bay within METER_JOIN_RADIUS_M)
+ *   3. Parking Zones (Street Segments)     (key join: bay.roadsegmentid → segment_id → parkingzone)
+ *   4. Sign Plates Located in Each Zone    (key join: parkingzone → restriction rules)
  *
  * Join strategy:
- *   Restrictions: bay → nearest sensor (≤ SENSOR_JOIN_RADIUS_M) → sensor.kerbsideid → restrictions.bayid
+ *   Restrictions: bay.roadsegmentid → zones.segment_id → zones.parkingzone → sign_plates.parkingzone
  *   Meters:       bay → nearest meter within METER_JOIN_RADIUS_M (spatial)
- *   Zones:        bay.roadsegmentid → zones.segment_id (key join)
+ *   Zones:        bay.roadsegmentid → zones.segment_id (key join, stored as easy_park_zone label)
  *
  * Run:
  *   SUPABASE_URL=https://xxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=xxx npx ts-node scripts/syncParkingKnowledge.ts
@@ -30,17 +29,15 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // ─── Dataset IDs — verify at data.melbourne.vic.gov.au ──────────────────────
 const MELBOURNE_API = 'https://data.melbourne.vic.gov.au/api/explore/v2.1/catalog/datasets';
 const DATASET = {
-  BAYS:         'on-street-parking-bays',                    // 23,864 physical bay locations
-  SENSORS:      'on-street-parking-bay-sensors',             // 3,309 sensor bays — bridge to restrictions
-  RESTRICTIONS: 'on-street-car-park-bay-restrictions',       // restriction rules per bayid
-  METERS:       'on-street-car-parking-meters-with-location',// payment info + location
-  ZONES:        'parking-zones-linked-to-street-segments',   // EasyPark zone per segment_id
+  BAYS:        'on-street-parking-bays',                     // 23,864 physical bay locations
+  METERS:      'on-street-car-parking-meters-with-location', // payment info + location
+  ZONES:       'parking-zones-linked-to-street-segments',    // EasyPark zone per segment_id
+  SIGN_PLATES: 'sign-plates-located-in-each-parking-zone',   // restriction rules per zone
 } as const;
 
-const TABLE             = 'parking_bays';
-const BATCH_SIZE        = 400;
-const METER_JOIN_RADIUS_M  = 50;  // attach meter if within 50 m of bay
-const SENSOR_JOIN_RADIUS_M = 10;  // attach sensor restrictions if within 10 m of bay
+const TABLE            = 'parking_bays';
+const BATCH_SIZE       = 400;
+const METER_JOIN_RADIUS_M = 50; // attach meter if within 50 m of bay
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,35 +48,6 @@ interface RawBay {
   latitude?: number;
   longitude?: number;
   location?: { lat: number; lon: number };
-  lastupdated?: string;
-}
-
-interface RawSensor {
-  kerbsideid: number;
-  location?: { lat: number; lon: number };
-}
-
-interface RawRestriction {
-  bayid: number;
-  deviceid?: number;
-  typedesc1?: string | null;  typedesc2?: string | null;  typedesc3?: string | null;
-  typedesc4?: string | null;  typedesc5?: string | null;  typedesc6?: string | null;
-  duration1?: number | null;  duration2?: number | null;  duration3?: number | null;
-  duration4?: number | null;  duration5?: number | null;  duration6?: number | null;
-  starttime1?: string | null; starttime2?: string | null; starttime3?: string | null;
-  starttime4?: string | null; starttime5?: string | null; starttime6?: string | null;
-  endtime1?: string | null;   endtime2?: string | null;   endtime3?: string | null;
-  endtime4?: string | null;   endtime5?: string | null;   endtime6?: string | null;
-  fromday1?: number | null;   fromday2?: number | null;   fromday3?: number | null;
-  fromday4?: number | null;   fromday5?: number | null;   fromday6?: number | null;
-  today1?: number | null;     today2?: number | null;     today3?: number | null;
-  today4?: number | null;     today5?: number | null;     today6?: number | null;
-  exemption1?: string | null; exemption2?: string | null; exemption3?: string | null;
-  exemption4?: string | null; exemption5?: string | null; exemption6?: string | null;
-  description1?: string | null; description2?: string | null; description3?: string | null;
-  description4?: string | null; description5?: string | null; description6?: string | null;
-  disabilityext1?: number | null; disabilityext2?: number | null;
-  disabilityext3?: number | null; disabilityext4?: number | null;
 }
 
 interface RawMeter {
@@ -95,6 +63,14 @@ interface RawZone {
   parkingzone?: number;
   onstreet?: string;
   segment_id?: number;
+}
+
+interface RawSignPlate {
+  parkingzone?: number;
+  restriction_days?: string | null;
+  time_restrictions_start?: string | null;
+  time_restrictions_finish?: string | null;
+  restriction_display?: string | null;
 }
 
 // ─── Supabase row shape ───────────────────────────────────────────────────────
@@ -148,7 +124,9 @@ const FRESH     = process.argv.includes('--fresh');
 /** Fetch all records from a Melbourne Open Data dataset via the bulk export endpoint. */
 async function fetchAll<T>(datasetId: string): Promise<T[]> {
   process.stdout.write(`  Fetching ${datasetId} `);
-  const url = `${MELBOURNE_API}/${datasetId}/exports/json?timezone=Australia/Melbourne`;
+  const apiKey = process.env.MELBOURNE_API_KEY;
+  const keyParam = apiKey ? `&apikey=${apiKey}` : '';
+  const url = `${MELBOURNE_API}/${datasetId}/exports/json?timezone=Australia/Melbourne${keyParam}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${datasetId}: ${await res.text()}`);
   const all = (await res.json()) as T[];
@@ -185,20 +163,18 @@ async function main() {
   }
 
   // ── 1. Fetch all datasets ─────────────────────────────────────────────────
-  console.log('\n[1/5] Fetching datasets from City of Melbourne Open Data...');
+  console.log('\n[1/4] Fetching datasets from City of Melbourne Open Data...');
 
-  const [rawBays, rawSensors, rawRestrictions, rawMeters, rawZones] = await Promise.all([
+  const [rawBays, rawMeters, rawZones, rawSignPlates] = await Promise.all([
     fetchAll<RawBay>(DATASET.BAYS),
-    fetchAll<RawSensor>(DATASET.SENSORS),
-    fetchAll<RawRestriction>(DATASET.RESTRICTIONS),
     fetchAll<RawMeter>(DATASET.METERS),
     fetchAll<RawZone>(DATASET.ZONES),
+    fetchAll<RawSignPlate>(DATASET.SIGN_PLATES),
   ]);
 
-  // ── 2. Index restrictions by bayid (wide → normalised rows) ─────────────
-  console.log('\n[2/5] Indexing restrictions by bayid...');
+  // ── 2. Index sign plates by parking zone ─────────────────────────────────
+  console.log('\n[2/4] Indexing sign plates by parking zone...');
 
-  const SLOTS = [1, 2, 3, 4, 5, 6] as const;
   const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   interface NormRestriction {
@@ -213,107 +189,84 @@ async function main() {
     exemption: string | null;
   }
 
-  function isoToHHMM(iso?: string | null): string | null {
-    if (!iso) return null;
-    const match = iso.match(/T(\d{2}):(\d{2}):(\d{2})([+-])(\d{2}):(\d{2})/);
-    if (!match) {
-      const simple = iso.match(/T(\d{2}:\d{2})/);
-      return simple ? simple[1] : null;
-    }
-    const [, hh, mm, ss, sign, offH, offM] = match;
-    const localSecs  = parseInt(hh) * 3600 + parseInt(mm) * 60 + parseInt(ss);
-    const offsetSecs = (parseInt(offH) * 3600 + parseInt(offM) * 60) * (sign === '+' ? 1 : -1);
-    const AEST_SECS  = 10 * 3600;
-    const DAY_SECS   = 24 * 3600;
-    const melbSecs   = ((localSecs - offsetSecs + AEST_SECS) % DAY_SECS + DAY_SECS) % DAY_SECS;
-    const h = Math.floor(melbSecs / 3600);
-    const m = Math.floor((melbSecs % 3600) / 60);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  /** "HH:MM:SS" → "HH:MM" */
+  function hhmmss(t?: string | null): string | null {
+    if (!t) return null;
+    return t.length >= 5 ? t.slice(0, 5) : null;
   }
 
-  function dayRange(from?: number | null, to?: number | null): string[] {
-    if (from == null || to == null) return [];
+  /** "Mon-Fri" | "Sat" | "Mon-Sat" → ["Mon","Tue",...] */
+  function parseDays(restrictionDays?: string | null): string[] {
+    if (!restrictionDays) return [];
+    const parts = restrictionDays.trim().split('-');
+    const fromIdx = DAY_NAMES.indexOf(parts[0]?.trim());
+    if (fromIdx < 0) return [];
+    if (parts.length === 1) return [DAY_NAMES[fromIdx]];
+    const toIdx = DAY_NAMES.indexOf(parts[1]?.trim());
+    if (toIdx < 0) return [DAY_NAMES[fromIdx]];
+    // Walk forward (handles wrap-around e.g. Fri-Mon)
     const days: string[] = [];
-    let d = from;
+    let d = fromIdx;
     while (true) {
       days.push(DAY_NAMES[d]);
-      if (d === to) break;
+      if (d === toIdx) break;
       d = (d + 1) % 7;
       if (days.length > 7) break;
     }
     return days;
   }
 
-  const restrictionsByBayId    = new Map<number, NormRestriction[]>();
-  const restrictionsByDeviceId = new Map<number, NormRestriction[]>();
-  for (const r of rawRestrictions) {
-    if (r.bayid == null) continue;
-    const row = r as unknown as Record<string, unknown>;
-    const slots: NormRestriction[] = [];
-    for (const n of SLOTS) {
-      const typeDesc = row[`typedesc${n}`] as string | null;
-      if (!typeDesc) continue;
-      slots.push({
-        typeDesc,
-        description: (row[`description${n}`] as string | null) ?? null,
-        durationMinutes: (row[`duration${n}`] as number | null) ?? null,
-        startTime:  isoToHHMM(row[`starttime${n}`] as string | null),
-        endTime:    isoToHHMM(row[`endtime${n}`] as string | null),
-        days:       dayRange(row[`fromday${n}`] as number | null, row[`today${n}`] as number | null),
-        isDisability:         typeDesc.toLowerCase().includes('disab'),
-        disabilityExtMinutes: (row[`disabilityext${n}`] as number | null) ?? null,
-        exemption:            (row[`exemption${n}`] as string | null) ?? null,
-      });
-    }
-    restrictionsByBayId.set(r.bayid, slots);
-    if (r.deviceid != null) restrictionsByDeviceId.set(r.deviceid, slots);
+  /** "2P" → 120, "1P" → 60, "1/2P" → 30, "1/4P" → 15, "Loading Zone 15M" → 15, etc. */
+  function parseDuration(display: string): number | null {
+    const wholeP = display.match(/^(\d+)P/);
+    if (wholeP) return parseInt(wholeP[1]) * 60;
+    const fracP = display.match(/^(\d+)\/(\d+)P/);
+    if (fracP) return Math.round((parseInt(fracP[1]) / parseInt(fracP[2])) * 60);
+    const loadingM = display.match(/Loading Zone (\d+)M/i);
+    if (loadingM) return parseInt(loadingM[1]);
+    return null;
   }
-  console.log(`  ${restrictionsByBayId.size} restriction records indexed`);
 
-  // ── 3. Build sensor bridge + meter/zone indexes ──────────────────────────
-  console.log('\n[3/5] Building sensor bridge, meter index, and zone index...');
+  const signPlatesByZone = new Map<number, NormRestriction[]>();
+  for (const plate of rawSignPlates) {
+    if (plate.parkingzone == null || !plate.restriction_display) continue;
+    const existing = signPlatesByZone.get(plate.parkingzone) ?? [];
+    existing.push({
+      typeDesc:             plate.restriction_display,
+      description:          null,
+      durationMinutes:      parseDuration(plate.restriction_display),
+      startTime:            hhmmss(plate.time_restrictions_start),
+      endTime:              hhmmss(plate.time_restrictions_finish),
+      days:                 parseDays(plate.restriction_days),
+      isDisability:         plate.restriction_display.toLowerCase().includes('dis'),
+      disabilityExtMinutes: null,
+      exemption:            null,
+    });
+    signPlatesByZone.set(plate.parkingzone, existing);
+  }
+  console.log(`  ${signPlatesByZone.size} zones with sign plate data (of ${rawSignPlates.length} plates)`);
 
-  interface SensorWithRestrictions {
-    lat: number;
-    lon: number;
-    kerbsideid: number;
-    restrictions: NormRestriction[];
-  }
-  const sensorBridge: SensorWithRestrictions[] = [];
-  for (const s of rawSensors) {
-    const lat = s.location?.lat;
-    const lon = s.location?.lon;
-    if (lat == null || lon == null) continue;
-    const restrictions =
-      restrictionsByBayId.get(s.kerbsideid) ??
-      restrictionsByDeviceId.get(s.kerbsideid) ??
-      null;
-    if (restrictions !== null) {
-      sensorBridge.push({ lat, lon, kerbsideid: s.kerbsideid, restrictions });
-    }
-  }
-  console.log(`  ${sensorBridge.length} sensors with restriction data (of ${rawSensors.length} sensors)`);
+  // ── 3. Build meter index and zone indexes ────────────────────────────────
+  console.log('\n[3/4] Building meter index and zone indexes...');
 
   const metersWithCoords = rawMeters.filter(
     (m) => (m.latitude != null && m.longitude != null) || m.location,
   );
 
-  const zoneBySegmentId = new Map<number, string>();
+  // segment_id → { label, parkingzone }
+  const zoneBySegmentId         = new Map<number, string>();
+  const parkingZoneBySegmentId  = new Map<number, number>();
   for (const z of rawZones) {
-    if (z.segment_id != null && z.parkingzone != null) {
-      const label = z.onstreet ? `Zone ${z.parkingzone} (${z.onstreet})` : `Zone ${z.parkingzone}`;
-      zoneBySegmentId.set(z.segment_id, label);
-    }
+    if (z.segment_id == null || z.parkingzone == null) continue;
+    const label = z.onstreet ? `Zone ${z.parkingzone} (${z.onstreet})` : `Zone ${z.parkingzone}`;
+    zoneBySegmentId.set(z.segment_id, label);
+    parkingZoneBySegmentId.set(z.segment_id, z.parkingzone);
   }
   console.log(`  ${metersWithCoords.length} meters with coordinates`);
-  console.log(`  ${zoneBySegmentId.size} unique segment IDs in zone index`);
+  console.log(`  ${parkingZoneBySegmentId.size} unique segment IDs in zone index`);
 
   // ── 4. Build documents ────────────────────────────────────────────────────
-  console.log('\n[4/5] Building rows...');
-
-  const restrictionsDataAvailable = sensorBridge.length > 0;
-  const metersDataAvailable       = metersWithCoords.length > 0;
-  const zonesDataAvailable        = zoneBySegmentId.size > 0;
+  console.log('\n[4/4] Building rows...');
 
   const bays = rawBays
     .filter((b) => (b.latitude != null && b.longitude != null) || b.location)
@@ -329,45 +282,36 @@ async function main() {
       ? String(bay.kerbsideid)
       : `${Math.round(lat * 1e6)}_${Math.round(lon * 1e6)}`;
 
-    // Restrictions via nearest sensor
-    let restrictions: ParkingBayRow['restrictions'] = null;
-    let marker_id: string | null = null;
-    if (restrictionsDataAvailable) {
-      let nearestSensor: SensorWithRestrictions | null = null;
-      let nearestDist = Infinity;
-      for (const s of sensorBridge) {
-        const d = haversineMetres(lat, lon, s.lat, s.lon);
-        if (d < nearestDist) { nearestDist = d; nearestSensor = s; }
-      }
-      if (nearestSensor && nearestDist <= SENSOR_JOIN_RADIUS_M) {
-        restrictions = nearestSensor.restrictions;
-        marker_id    = String(nearestSensor.kerbsideid);
-      }
-    }
+    // Restrictions via zone → sign plates
+    const parkingZone = bay.roadsegmentid != null
+      ? parkingZoneBySegmentId.get(bay.roadsegmentid)
+      : undefined;
+    const restrictions: ParkingBayRow['restrictions'] =
+      parkingZone != null ? (signPlatesByZone.get(parkingZone) ?? null) : null;
+    const marker_id: string | null = parkingZone != null ? String(parkingZone) : null;
 
     // Meter via nearest spatial join
     let meter: ParkingBayRow['meter'] = null;
-    if (metersDataAvailable) {
-      let nearestMeter: (typeof metersWithCoords)[0] | null = null;
-      let nearestDist = Infinity;
-      for (const m of metersWithCoords) {
-        const mLat = m.latitude ?? m.location?.lat;
-        const mLon = m.longitude ?? m.location?.lon;
-        if (mLat == null || mLon == null) continue;
-        const d = haversineMetres(lat, lon, mLat, mLon);
-        if (d < nearestDist) { nearestDist = d; nearestMeter = m; }
-      }
-      if (nearestMeter && nearestDist <= METER_JOIN_RADIUS_M) {
-        meter = {
-          meterId:      nearestMeter.meter_id ?? null,
-          tapAndGo:     nearestMeter.tapandgo === 'Yes',
-          cardAccepted: nearestMeter.creditcard === 'Yes',
-        };
+    let nearestMeterDist = Infinity;
+    for (const m of metersWithCoords) {
+      const mLat = m.latitude ?? m.location?.lat;
+      const mLon = m.longitude ?? m.location?.lon;
+      if (mLat == null || mLon == null) continue;
+      const d = haversineMetres(lat, lon, mLat, mLon);
+      if (d < nearestMeterDist) {
+        nearestMeterDist = d;
+        if (d <= METER_JOIN_RADIUS_M) {
+          meter = {
+            meterId:      m.meter_id ?? null,
+            tapAndGo:     m.tapandgo === 'Yes',
+            cardAccepted: m.creditcard === 'Yes',
+          };
+        }
       }
     }
 
-    // Zone via key join
-    const easy_park_zone = (zonesDataAvailable && bay.roadsegmentid != null)
+    // Zone label
+    const easy_park_zone = bay.roadsegmentid != null
       ? (zoneBySegmentId.get(bay.roadsegmentid) ?? null)
       : null;
 

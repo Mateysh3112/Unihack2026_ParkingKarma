@@ -42,6 +42,66 @@ interface Props {
 }
 
 // ---------------------------------------------------------------------------
+// Restriction formatting helpers
+// ---------------------------------------------------------------------------
+function formatDuration(mins: number): string {
+  if (mins < 60) return `${mins} min max`;
+  const hrs = mins / 60;
+  return `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)} hr max`;
+}
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  const period = h < 12 ? 'am' : 'pm';
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${period}` : `${hour}:${m.toString().padStart(2, '0')}${period}`;
+}
+
+function formatDays(days: string[]): string | null {
+  if (!days.length) return null;
+  if (days.length === 1) return days[0];
+  return `${days[0]}–${days[days.length - 1]}`;
+}
+
+type Restriction = NonNullable<NearestBayInfo['restrictions']>[number];
+
+function formatRestriction(r: Restriction): string {
+  const parts: string[] = [];
+  const td = r.typeDesc.toUpperCase();
+
+  if (r.isDisability) {
+    parts.push('Disability bay');
+    if (r.durationMinutes) parts.push(formatDuration(r.durationMinutes));
+  } else {
+    // LZ30, LZ15 — Loading Zone X min
+    const lzMatch = td.match(/^LZ(\d+)$/);
+    if (lzMatch) {
+      const mins = r.durationMinutes ?? parseInt(lzMatch[1]);
+      parts.push(`Loading zone · ${mins} min`);
+    } else {
+      // MP2P, MP1P — Metered Parking X hour
+      const mpMatch = td.match(/^M?P?(\d+(?:\/\d+)?)P$/);
+      const duration = r.durationMinutes ?? (mpMatch ? Math.round(parseFloat(mpMatch[1]) * 60) : null);
+      const isMetered = td.startsWith('M');
+      if (duration) {
+        parts.push((isMetered ? 'Metered · ' : '') + formatDuration(duration));
+      } else {
+        parts.push(r.typeDesc); // unknown code — show as-is
+      }
+    }
+  }
+
+  const dayStr = formatDays(r.days);
+  if (dayStr) parts.push(dayStr);
+
+  if (r.startTime && r.endTime) {
+    parts.push(`${formatTime(r.startTime)}–${formatTime(r.endTime)}`);
+  }
+
+  return parts.join(' · ');
+}
+
+// ---------------------------------------------------------------------------
 // Countdown ring — shows time remaining to claim (10 minutes)
 // ---------------------------------------------------------------------------
 function ClaimCountdown({ expiresIn }: { expiresIn: number }) {
@@ -279,10 +339,7 @@ export function SpotClaimScreen({
             <View style={styles.infoRow}>
               <Text style={styles.infoIcon}>🅿</Text>
               <Text style={styles.infoText}>
-                {bayInfo.restrictions[0].description ?? bayInfo.restrictions[0].typeDesc}
-                {bayInfo.restrictions[0].durationMinutes
-                  ? ` · ${bayInfo.restrictions[0].durationMinutes} min max`
-                  : ""}
+                {bayInfo.restrictions.map(formatRestriction).join('\n')}
               </Text>
             </View>
           ) : null}

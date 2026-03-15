@@ -187,7 +187,7 @@ function MonitoringPhase({ onCancel }: { onCancel: () => void }) {
   );
 }
 
-function BroadcastingPhase() {
+function BroadcastingPhase({ onBackToMap }: { onBackToMap: () => void }) {
   const spin = useRef(new Animated.Value(0)).current;
   const { statusMessage } = useVerificationStore();
 
@@ -217,6 +217,9 @@ function BroadcastingPhase() {
       <Text style={styles.pendingKarma}>
         +{KARMA_REWARDS.SHARE_SPOT} karma pending until claimed
       </Text>
+      <TouchableOpacity style={styles.cancelButton} onPress={onBackToMap}>
+        <Text style={styles.cancelButtonText}>Back to Map</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -290,7 +293,7 @@ export function LeavingVerificationScreen({ visible, onClose }: Props) {
     if (verificationStatus === "broadcasted") {
       if (claimStatus === "claimed")
         return <ClaimedPhase onClose={handleClose} />;
-      return <BroadcastingPhase />;
+      return <BroadcastingPhase onBackToMap={onClose} />;
     }
 
     if (
