@@ -22,6 +22,7 @@ import {
 } from "../services/anticheat";
 import { claimFirestoreSpot } from "../services/spots";
 import { openGoogleMapsNavigation } from "../services/navigation";
+import { fetchNearestBay, NearestBayInfo } from "../services/parkingBays";
 
 interface NearbySpot {
   id: string;
@@ -39,6 +40,63 @@ interface Props {
   spot: NearbySpot | null;
   onClaimed: () => void;
   onDismiss: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Restriction formatting
+// ---------------------------------------------------------------------------
+function formatDuration(mins: number): string {
+  if (mins < 60) return `${mins} min max`;
+  const hrs = mins / 60;
+  return `${hrs % 1 === 0 ? hrs : hrs.toFixed(1)} hr max`;
+}
+
+function formatTime(t: string): string {
+  const [h, m] = t.split(':').map(Number);
+  const period = h < 12 ? 'am' : 'pm';
+  const hour = h % 12 || 12;
+  return m === 0 ? `${hour}${period}` : `${hour}:${m.toString().padStart(2, '0')}${period}`;
+}
+
+function formatDays(days: string[]): string | null {
+  if (!days.length) return null;
+  if (days.length === 1) return days[0];
+  return `${days[0]}–${days[days.length - 1]}`;
+}
+
+type Restriction = NonNullable<NearestBayInfo['restrictions']>[number];
+
+function formatRestriction(r: Restriction): string {
+  const parts: string[] = [];
+  const td = r.typeDesc.toUpperCase();
+
+  if (r.isDisability) {
+    parts.push('Disability bay');
+    if (r.durationMinutes) parts.push(formatDuration(r.durationMinutes));
+  } else {
+    const lzMatch = td.match(/^LZ(\d+)$/);
+    if (lzMatch) {
+      const mins = r.durationMinutes ?? parseInt(lzMatch[1]);
+      parts.push(`Loading zone · ${mins} min`);
+    } else {
+      const mpMatch = td.match(/^M?P?(\d+(?:\/\d+)?)P$/);
+      const duration = r.durationMinutes ?? (mpMatch ? Math.round(parseFloat(mpMatch[1]) * 60) : null);
+      const isMetered = td.startsWith('M');
+      if (duration) {
+        parts.push((isMetered ? 'Metered · ' : '') + formatDuration(duration));
+      } else {
+        parts.push(r.typeDesc);
+      }
+    }
+  }
+
+  const dayStr = formatDays(r.days);
+  if (dayStr) parts.push(dayStr);
+  if (r.startTime && r.endTime) {
+    parts.push(`${formatTime(r.startTime)}–${formatTime(r.endTime)}`);
+  }
+
+  return parts.join(' · ');
 }
 
 // ---------------------------------------------------------------------------
@@ -73,6 +131,7 @@ export function SpotClaimScreen({
   const [claimed, setClaimed] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [expiresIn, setExpiresIn] = useState(600); // 10 minutes
+  const [bayInfo, setBayInfo] = useState<NearestBayInfo | null>(null);
 
   const {
     user,
@@ -94,6 +153,8 @@ export function SpotClaimScreen({
       setClaimed(false);
       setDismissed(false);
       setExpiresIn(600);
+      setBayInfo(null);
+      fetchNearestBay(spot.lat, spot.lng).then(setBayInfo);
 
       Animated.spring(slideIn, {
         toValue: 0,
@@ -265,9 +326,30 @@ export function SpotClaimScreen({
           <View style={styles.infoRow}>
             <Text style={styles.infoIcon}>📍</Text>
             <Text style={styles.infoText}>
-              {spot.lat.toFixed(5)}, {spot.lng.toFixed(5)}
+              {bayInfo?.street_name ?? `${spot.lat.toFixed(5)}, ${spot.lng.toFixed(5)}`}
             </Text>
           </View>
+
+          {bayInfo?.restrictions?.length ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}>🅿</Text>
+              <Text style={styles.infoText}>
+                {bayInfo.restrictions.map(formatRestriction).join('\n')}
+              </Text>
+            </View>
+          ) : null}
+
+          {bayInfo?.meter ? (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoIcon}>💳</Text>
+              <Text style={styles.infoText}>
+                {[
+                  bayInfo.meter.tapAndGo && 'Tap & Go',
+                  bayInfo.meter.cardAccepted && 'Card accepted',
+                ].filter(Boolean).join(' · ') || 'Paid parking'}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Floor / car park info — only shown for multi-storey spots */}
           {(spot.isMultiStorey ||
