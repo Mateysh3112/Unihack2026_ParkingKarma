@@ -62,17 +62,38 @@ export const useAppStore = create<AppState>((set, get) => ({
   initializeAuth: () => {
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        let userProfile = await getUserProfile(session.user.id);
+        try {
+          let userProfile = await getUserProfile(session.user.id);
 
-        if (!userProfile) {
-          userProfile = await createUserProfile(session.user);
+          if (!userProfile) {
+            userProfile = await createUserProfile(session.user);
+          }
+
+          set({
+            user: userProfile,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+          // Fall back to a minimal profile so auth still completes
+          set({
+            user: {
+              id: session.user.id,
+              name: 'Guest User',
+              karma: 0,
+              tier: 'Seedling',
+              karmaStrikes: 0,
+              isFrozen: false,
+              freezeExpiresAt: null,
+              parkingSinnerUntil: null,
+              spotsShared: 0,
+              spotsUsed: 0,
+            },
+            isAuthenticated: true,
+            isLoading: false,
+          });
         }
-
-        set({
-          user: userProfile,
-          isAuthenticated: true,
-          isLoading: false,
-        });
       } else {
         set({
           user: null,

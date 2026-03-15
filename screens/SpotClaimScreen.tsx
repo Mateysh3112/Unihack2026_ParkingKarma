@@ -21,6 +21,7 @@ import {
   updateSuspectLocation,
 } from "../services/anticheat";
 import { claimFirestoreSpot } from "../services/spots";
+import { openGoogleMapsNavigation } from "../services/navigation";
 
 interface NearbySpot {
   id: string;
@@ -296,6 +297,19 @@ export function SpotClaimScreen({
 
           {/* Actions */}
           <TouchableOpacity
+            style={styles.navigateBtn}
+            onPress={() => openGoogleMapsNavigation(
+              spot.lat,
+              spot.lng,
+              'Parking Karma Spot'
+            )}
+          >
+            <Text style={styles.navigateBtnText}>
+              🗺️ Navigate to Spot
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[
               styles.claimButton,
               isOwnSpot && styles.claimButtonDisabled,
@@ -443,5 +457,18 @@ const styles = StyleSheet.create({
   dismissButtonText: {
     color: "#888",
     fontSize: 14,
+  },
+  navigateBtn: {
+    backgroundColor: '#4285F4',
+    padding: 14,
+    alignItems: 'center',
+    marginBottom: 8,
+    borderRadius: 4,
+  },
+  navigateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Courier New',
   },
 });

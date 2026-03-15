@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { FABButton } from '../components/FABButton';
@@ -24,6 +24,7 @@ import { isInsideCarPark } from '../services/carParks';
 import { subscribeToBroadcastingSpots, expireOldSpots } from '../services/spots';
 import { haversineDistance } from '../services/movement';
 import { fetchMelbourneParkingBays } from '../services/melbourneSensors';
+import { openGoogleMapsNavigation } from '../services/navigation';
 
 const INITIAL_REGION = {
   latitude: -37.81263375505453,
@@ -52,6 +53,8 @@ export function MapScreen() {
     lng: number;
   } | null>(null);
   const [sensorBays, setSensorBays] = useState<ParkingBay[]>([]);
+  const [selectedSensor, setSelectedSensor] = useState<ParkingBay | null>(null);
+  const [sensorSheetVisible, setSensorSheetVisible] = useState(false);
 
   const pendingLocRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -234,6 +237,10 @@ export function MapScreen() {
     setSelectedSpot(null);
   };
 
+  const handleNavigateToSensor = async (lat: number, lng: number) => {
+    await openGoogleMapsNavigation(lat, lng, 'Parking Bay');
+  };
+
   const handleVerificationClose = () => {
     setVerificationVisible(false);
     pendingLocRef.current = null;
@@ -268,21 +275,38 @@ export function MapScreen() {
               longitude: spot.location.lng,
             }}
             title="Free Spot"
-            description="Tap to claim"
+            description="Tap to claim • Hold to navigate"
             pinColor="#34C759"
             onPress={() => handleSpotPress(spot)}
+            onLongPress={() => openGoogleMapsNavigation(
+              spot.location.lat,
+              spot.location.lng,
+              'Parking Karma Spot'
+            )}
           />
         ))}
 
-        {sensorBays.map((bay) => (
-          <Marker
-            key={`sensor-${bay.bayId}`}
-            coordinate={{ latitude: bay.lat, longitude: bay.lng }}
-            pinColor="blue"
-            title={`Bay ${bay.markerId}`}
-            description="City of Melbourne sensor — currently empty"
-          />
-        ))}
+        {sensorBays.map((bay) => {
+          const stale = (Date.now() - bay.lastUpdated.getTime()) > 5 * 60 * 1000;
+          return (
+            <Marker
+              key={`sensor-${bay.bayId}`}
+              coordinate={{ latitude: bay.lat, longitude: bay.lng }}
+              pinColor={stale ? '#8E8E93' : '#4285F4'}
+              title={`Bay ${bay.markerId}`}
+              description="Tap for details • Hold to navigate"
+              onPress={() => {
+                setSelectedSensor(bay);
+                setSensorSheetVisible(true);
+              }}
+              onLongPress={() => openGoogleMapsNavigation(
+                bay.lat,
+                bay.lng,
+                'Parking Bay'
+              )}
+            />
+          );
+        })}
       </MapView>
 
       <FABButton onPress={handleLeaving} label={detecting ? 'CHECKING...' : "I'M LEAVING!"} />
@@ -306,6 +330,49 @@ export function MapScreen() {
         visible={verificationVisible}
         onClose={handleVerificationClose}
       />
+
+      {/* Sensor bay detail sheet */}
+      <Modal
+        visible={sensorSheetVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSensorSheetVisible(false)}
+      >
+        <View style={styles.sensorOverlay}>
+          <View style={styles.sensorSheet}>
+            <View style={styles.sensorHandle} />
+            {selectedSensor && (
+              <>
+                <Text style={styles.sensorTitle}>Bay {selectedSensor.markerId}</Text>
+                <Text style={styles.sensorStatus}>
+                  Status: {selectedSensor.status}
+                </Text>
+                <Text style={styles.sensorMeta}>
+                  Last updated:{' '}
+                  {selectedSensor.lastUpdated.toLocaleTimeString()}
+                </Text>
+                <TouchableOpacity
+                  style={styles.sensorNavigateBtn}
+                  onPress={() => {
+                    handleNavigateToSensor(selectedSensor.lat, selectedSensor.lng);
+                    setSensorSheetVisible(false);
+                  }}
+                >
+                  <Text style={styles.sensorNavigateBtnText}>
+                    🗺️ Navigate Here
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity
+              style={styles.sensorDismissBtn}
+              onPress={() => setSensorSheetVisible(false)}
+            >
+              <Text style={styles.sensorDismissBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <SpotClaimScreen
         visible={claimScreenVisible}
@@ -340,4 +407,60 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  sensorOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  sensorSheet: {
+    backgroundColor: '#1A1A1A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 12,
+    gap: 12,
+  },
+  sensorHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#444',
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+  sensorTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  sensorStatus: {
+    color: '#CCCCCC',
+    fontSize: 15,
+  },
+  sensorMeta: {
+    color: '#888',
+    fontSize: 13,
+  },
+  sensorNavigateBtn: {
+    backgroundColor: '#4285F4',
+    padding: 14,
+    alignItems: 'center',
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  sensorNavigateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Courier New',
+  },
+  sensorDismissBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  sensorDismissBtnText: {
+    color: '#888',
+    fontSize: 14,
+  },
 });
